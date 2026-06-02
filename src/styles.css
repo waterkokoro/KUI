@@ -1,0 +1,519 @@
+/* ============================================================
+   kui · 全局样式
+   - 三层背景：layout(最外) / container(侧栏顶栏) / elevated(气泡卡片)
+   - 用 :root[data-theme] 做 antd cssVar 加载前的 fallback 颜色
+   ============================================================ */
+
+:root[data-theme="dark"] {
+  --kui-fallback-bg: #16181d;
+  --kui-fallback-bg-2: #1c1f26;
+  --kui-fallback-bg-3: #232730;
+  --kui-fallback-text: #e6e6e6;
+  --kui-fallback-border: rgba(255, 255, 255, 0.08);
+  --kui-fallback-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --kui-fallback-bg: #f5f7fa;
+  --kui-fallback-bg-2: #ffffff;
+  --kui-fallback-bg-3: #ffffff;
+  --kui-fallback-text: #1f1f1f;
+  --kui-fallback-border: rgba(0, 0, 0, 0.08);
+  --kui-fallback-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  color-scheme: light;
+}
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", Roboto, Oxygen, Ubuntu,
+    "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  background: var(--ant-color-bg-layout, var(--kui-fallback-bg));
+  color: var(--ant-color-text, var(--kui-fallback-text));
+}
+
+/* ---------- shell ---------- */
+.kui-shell {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--ant-color-bg-layout, var(--kui-fallback-bg));
+  color: var(--ant-color-text, var(--kui-fallback-text));
+}
+
+.kui-shell-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+/* ---------- topbar ---------- */
+.kui-topbar {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  background: var(--ant-color-bg-container, var(--kui-fallback-bg-2));
+  border-bottom: 1px solid var(--ant-color-border-secondary, var(--kui-fallback-border));
+  user-select: none;
+}
+
+.kui-topbar-brand {
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.5px;
+  margin-right: 8px;
+  color: var(--ant-color-text, var(--kui-fallback-text));
+}
+
+/* ---------- sidebar ---------- */
+.kui-sidebar {
+  width: 260px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--ant-color-bg-container, var(--kui-fallback-bg-2));
+  border-right: 1px solid var(--ant-color-border-secondary, var(--kui-fallback-border));
+}
+
+.kui-sidebar-header {
+  padding: 10px 10px 8px;
+  display: flex;
+  gap: 6px;
+  border-bottom: 1px solid var(--ant-color-border-secondary, var(--kui-fallback-border));
+}
+
+.kui-sidebar-tree {
+  flex: 1;
+  overflow: auto;
+  padding: 6px 6px 12px;
+}
+
+/* AntD Tree 自身在 dark 主题下背景是透明的，确保选中色明显 */
+.kui-sidebar-tree .ant-tree {
+  background: transparent;
+}
+
+/* ---------- main ---------- */
+.kui-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--ant-color-bg-layout, var(--kui-fallback-bg));
+}
+
+.kui-chat-header {
+  height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  background: var(--ant-color-bg-container, var(--kui-fallback-bg-2));
+  border-bottom: 1px solid var(--ant-color-border-secondary, var(--kui-fallback-border));
+  flex-shrink: 0;
+}
+
+.kui-chat-title {
+  font-weight: 600;
+  font-size: 14px;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- chat ---------- */
+.kui-chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px 12px;
+}
+
+.kui-chat-bubble {
+  max-width: 820px;
+  margin: 0 auto 14px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: var(--ant-color-bg-elevated, var(--kui-fallback-bg-3));
+  border: 1px solid var(--ant-color-border-secondary, var(--kui-fallback-border));
+  box-shadow: var(--kui-fallback-shadow);
+}
+
+.kui-chat-bubble.user {
+  background: var(--ant-color-primary-bg, rgba(22, 119, 255, 0.12));
+  border-color: var(--ant-color-primary-border, rgba(22, 119, 255, 0.3));
+}
+
+.kui-chat-bubble pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+}
+
+.kui-chat-bubble .wmde-markdown {
+  background: transparent !important;
+  color: inherit !important;
+  font-size: 14px;
+}
+
+.kui-chat-meta {
+  font-size: 12px;
+  opacity: 0.65;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* ---------- composer ---------- */
+.kui-composer {
+  background: var(--ant-color-bg-container, var(--kui-fallback-bg-2));
+  border-top: 1px solid var(--ant-color-border-secondary, var(--kui-fallback-border));
+  padding: 12px 16px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.kui-composer textarea {
+  flex: 1;
+  resize: none;
+  border: 1px solid var(--ant-color-border, var(--kui-fallback-border));
+  border-radius: 10px;
+  background: var(--ant-color-bg-elevated, var(--kui-fallback-bg-3));
+  color: var(--ant-color-text, var(--kui-fallback-text));
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.kui-composer textarea:focus {
+  border-color: var(--ant-color-primary, #1677ff);
+  box-shadow: 0 0 0 2px var(--ant-color-primary-bg, rgba(22, 119, 255, 0.15));
+}
+
+.kui-composer textarea::placeholder {
+  color: var(--ant-color-text-placeholder, rgba(255, 255, 255, 0.3));
+}
+
+/* ---------- graph ---------- */
+.kui-graph-canvas {
+  flex: 1;
+  min-height: 0;
+  background: var(--ant-color-bg-layout, var(--kui-fallback-bg));
+}
+
+/* React Flow 在暗色主题下背景需要透明 */
+.kui-graph-canvas .react-flow__renderer,
+.kui-graph-canvas .react-flow__pane {
+  background: transparent;
+}
+
+/* ---------- empty / settings ---------- */
+.kui-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: var(--ant-color-text-secondary, rgba(255, 255, 255, 0.45));
+  font-size: 14px;
+}
+
+.kui-settings {
+  flex: 1;
+  overflow: auto;
+  padding: 20px 28px;
+  background: var(--ant-color-bg-layout, var(--kui-fallback-bg));
+}
+
+.kui-settings .ant-tabs-content-holder {
+  background: var(--ant-color-bg-container, var(--kui-fallback-bg-2));
+  border: 1px solid var(--ant-color-border-secondary, var(--kui-fallback-border));
+  border-radius: 10px;
+  padding: 18px 20px;
+  margin-top: 4px;
+}
+
+/* ---------- scrollbar ---------- */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--ant-color-border, rgba(128, 128, 128, 0.25));
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ant-color-text-quaternary, rgba(128, 128, 128, 0.45));
+}
+
+/* ============================================================
+   Markdown 内容渲染
+   ============================================================ */
+.kui-md {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--ant-color-text, var(--kui-fallback-text));
+  word-wrap: break-word;
+}
+
+.kui-md > .wmde-markdown,
+.kui-md .wmde-markdown {
+  background: transparent !important;
+  color: inherit !important;
+  font-size: inherit !important;
+  font-family: inherit !important;
+}
+
+.kui-md p { margin: 0.4em 0; }
+.kui-md p:first-child { margin-top: 0; }
+.kui-md p:last-child { margin-bottom: 0; }
+
+.kui-md h1, .kui-md h2, .kui-md h3, .kui-md h4, .kui-md h5, .kui-md h6 {
+  margin: 1em 0 0.4em;
+  font-weight: 600;
+  line-height: 1.35;
+  border-bottom: none !important;
+  padding-bottom: 0 !important;
+}
+.kui-md h1 { font-size: 1.5em; }
+.kui-md h2 { font-size: 1.3em; }
+.kui-md h3 { font-size: 1.15em; }
+.kui-md h4 { font-size: 1.05em; }
+
+.kui-md ul, .kui-md ol {
+  padding-left: 1.6em;
+  margin: 0.4em 0;
+}
+.kui-md li { margin: 0.15em 0; }
+.kui-md li > p { margin: 0.2em 0; }
+
+/* 任务列表 */
+.kui-md input[type="checkbox"] {
+  margin-right: 6px;
+  cursor: default;
+}
+
+/* blockquote */
+.kui-md blockquote {
+  margin: 0.6em 0;
+  padding: 6px 14px;
+  border-left: 3px solid var(--ant-color-primary, #1677ff);
+  background: var(--ant-color-fill-quaternary, rgba(128, 128, 128, 0.08));
+  border-radius: 0 6px 6px 0;
+  color: var(--ant-color-text-secondary, inherit);
+}
+.kui-md blockquote p { margin: 0.2em 0; }
+
+/* 行内 code */
+.kui-md :not(pre) > code {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.88em;
+  background: var(--ant-color-fill-tertiary, rgba(128, 128, 128, 0.15));
+  border: 1px solid var(--ant-color-border-secondary, var(--kui-fallback-border));
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+  color: var(--ant-color-error-text, #d63384);
+}
+.kui-md-dark :not(pre) > code {
+  color: #ff7b9c;
+}
+
+/* 链接 */
+.kui-md a {
+  color: var(--ant-color-link, var(--ant-color-primary, #1677ff));
+  text-decoration: none;
+}
+.kui-md a:hover { text-decoration: underline; }
+
+/* 水平线 */
+.kui-md hr {
+  border: none;
+  border-top: 1px solid var(--ant-color-border-secondary, var(--kui-fallback-border));
+  margin: 1em 0;
+}
+
+/* 表格 */
+.kui-md table {
+  display: block;
+  overflow-x: auto;
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.6em 0;
+  font-size: 0.92em;
+  border: 1px solid var(--ant-color-border-secondary, var(--kui-fallback-border));
+  border-radius: 8px;
+}
+.kui-md table thead {
+  background: var(--ant-color-fill-quaternary, rgba(128, 128, 128, 0.08));
+}
+.kui-md table th,
+.kui-md table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--ant-color-border-secondary, var(--kui-fallback-border));
+  border-right: 1px solid var(--ant-color-border-secondary, var(--kui-fallback-border));
+  text-align: left;
+  vertical-align: top;
+}
+.kui-md table th:last-child,
+.kui-md table td:last-child { border-right: none; }
+.kui-md table tr:last-child td { border-bottom: none; }
+.kui-md table th { font-weight: 600; }
+.kui-md table tbody tr:hover {
+  background: var(--ant-color-fill-quaternary, rgba(128, 128, 128, 0.05));
+}
+/* 表格内的 code 元素：去掉代码块样式，保持普通文本外观 */
+.kui-md table code {
+  padding: 0 !important;
+  border-radius: 0 !important;
+  font-size: inherit !important;
+  background: transparent !important;
+  border: none !important;
+  font-family: inherit !important;
+  color: inherit !important;
+}
+
+/* 代码块容器（带语言标签 + 复制按钮） */
+.kui-code-block {
+  margin: 0.6em 0;
+  border: 1px solid var(--ant-color-border-secondary, var(--kui-fallback-border));
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--kui-code-bg, #0f1115);
+}
+[data-theme="light"] .kui-code-block {
+  background: #f6f8fa;
+}
+
+.kui-code-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px;
+  background: var(--ant-color-fill-quaternary, rgba(255, 255, 255, 0.04));
+  border-bottom: 1px solid var(--ant-color-border-secondary, var(--kui-fallback-border));
+  font-size: 11px;
+  color: var(--ant-color-text-secondary, rgba(255, 255, 255, 0.55));
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.kui-code-lang {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.kui-code-block pre {
+  margin: 0;
+  padding: 12px 14px;
+  overflow-x: auto;
+  background: transparent !important;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.kui-code-block pre code {
+  background: transparent !important;
+  padding: 0 !important;
+  border: none !important;
+  font-size: inherit !important;
+  color: var(--ant-color-text, #e6e6e6);
+  white-space: pre;
+}
+[data-theme="light"] .kui-code-block pre code {
+  color: #1f1f1f;
+}
+
+/* prism 语法高亮 token 颜色（暗色） */
+[data-theme="dark"] .kui-code-block .token.comment,
+[data-theme="dark"] .kui-code-block .token.prolog,
+[data-theme="dark"] .kui-code-block .token.doctype,
+[data-theme="dark"] .kui-code-block .token.cdata { color: #6a737d; font-style: italic; }
+[data-theme="dark"] .kui-code-block .token.punctuation { color: #c9d1d9; }
+[data-theme="dark"] .kui-code-block .token.property,
+[data-theme="dark"] .kui-code-block .token.tag,
+[data-theme="dark"] .kui-code-block .token.boolean,
+[data-theme="dark"] .kui-code-block .token.number,
+[data-theme="dark"] .kui-code-block .token.constant,
+[data-theme="dark"] .kui-code-block .token.symbol { color: #79c0ff; }
+[data-theme="dark"] .kui-code-block .token.selector,
+[data-theme="dark"] .kui-code-block .token.attr-name,
+[data-theme="dark"] .kui-code-block .token.string,
+[data-theme="dark"] .kui-code-block .token.char,
+[data-theme="dark"] .kui-code-block .token.builtin { color: #a5d6ff; }
+[data-theme="dark"] .kui-code-block .token.operator,
+[data-theme="dark"] .kui-code-block .token.entity,
+[data-theme="dark"] .kui-code-block .token.url { color: #ff7b72; }
+[data-theme="dark"] .kui-code-block .token.atrule,
+[data-theme="dark"] .kui-code-block .token.attr-value,
+[data-theme="dark"] .kui-code-block .token.keyword { color: #ff7b72; }
+[data-theme="dark"] .kui-code-block .token.function,
+[data-theme="dark"] .kui-code-block .token.class-name { color: #d2a8ff; }
+[data-theme="dark"] .kui-code-block .token.regex,
+[data-theme="dark"] .kui-code-block .token.important,
+[data-theme="dark"] .kui-code-block .token.variable { color: #ffa657; }
+
+/* prism 语法高亮 token 颜色（亮色 — github light） */
+[data-theme="light"] .kui-code-block .token.comment,
+[data-theme="light"] .kui-code-block .token.prolog,
+[data-theme="light"] .kui-code-block .token.doctype,
+[data-theme="light"] .kui-code-block .token.cdata { color: #6e7781; font-style: italic; }
+[data-theme="light"] .kui-code-block .token.punctuation { color: #24292f; }
+[data-theme="light"] .kui-code-block .token.property,
+[data-theme="light"] .kui-code-block .token.tag,
+[data-theme="light"] .kui-code-block .token.boolean,
+[data-theme="light"] .kui-code-block .token.number,
+[data-theme="light"] .kui-code-block .token.constant,
+[data-theme="light"] .kui-code-block .token.symbol { color: #0550ae; }
+[data-theme="light"] .kui-code-block .token.selector,
+[data-theme="light"] .kui-code-block .token.attr-name,
+[data-theme="light"] .kui-code-block .token.string,
+[data-theme="light"] .kui-code-block .token.char,
+[data-theme="light"] .kui-code-block .token.builtin { color: #0a3069; }
+[data-theme="light"] .kui-code-block .token.operator,
+[data-theme="light"] .kui-code-block .token.keyword,
+[data-theme="light"] .kui-code-block .token.atrule { color: #cf222e; }
+[data-theme="light"] .kui-code-block .token.function,
+[data-theme="light"] .kui-code-block .token.class-name { color: #8250df; }
+[data-theme="light"] .kui-code-block .token.regex,
+[data-theme="light"] .kui-code-block .token.important,
+[data-theme="light"] .kui-code-block .token.variable { color: #953800; }
+
+/* 右键菜单 - 不走 antd Dropdown，自包一层以保证在深色下也有背景 */
+.kui-tree-ctx-menu {
+  background: var(--ant-color-bg-elevated, var(--kui-fallback-bg-3));
+  border: 1px solid var(--ant-color-border-secondary, var(--kui-fallback-border));
+}
+.kui-tree-ctx-menu .ant-menu {
+  border: none !important;
+  background: transparent !important;
+}
+
+/* mermaid 图 */
+.kui-mermaid {
+  margin: 0.8em 0;
+  padding: 12px;
+  border: 1px solid var(--ant-color-border-secondary, var(--kui-fallback-border));
+  border-radius: 8px;
+  background: var(--ant-color-bg-container, var(--kui-fallback-bg-2));
+  text-align: center;
+  overflow-x: auto;
+}
+.kui-mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
