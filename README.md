@@ -144,6 +144,29 @@ npm run tauri dev
 npm run tauri build
 ```
 
+### ⚠️ macOS 安装提示
+
+由于应用未经过 Apple 公证，macOS 可能会提示「KUI 已损坏，无法打开」。请使用以下任一方式解决：
+
+**方式一：终端移除隔离属性（推荐）**
+
+```bash
+xattr -cr /Applications/KUI.app
+```
+
+**方式二：右键打开**
+
+在 Finder 中找到 KUI.app → 按住 `Control` 点击（或右键）→ 选择「打开」→ 弹窗中再点「打开」。
+
+**方式三：临时允许任何来源**
+
+```bash
+# 开启
+sudo spctl --master-disable
+# 安装完成后建议关闭
+sudo spctl --master-enable
+```
+
 ---
 
 ## 📁 项目结构
