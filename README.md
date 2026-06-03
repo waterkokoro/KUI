@@ -19,6 +19,10 @@
   <a href="https://github.com/waterkokoro/KUI/pulls"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome"></a>
 </p>
 
+<p align="center">
+  <strong>简体中文</strong> | <a href="./README_EN.md">English</a>
+</p>
+
 ---
 
 ## 📖 介绍
