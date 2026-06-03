@@ -1,4 +1,5 @@
-import { Tabs } from "antd";
+import { Button, Tabs } from "antd";
+import { ArrowLeftOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { GeneralTab } from "./tabs/GeneralTab";
 import { ProvidersTab } from "./tabs/ProvidersTab";
@@ -9,9 +10,18 @@ import { useAppStore } from "../../stores/appStore";
 
 export function SettingsView() {
   const { t } = useTranslation();
-  const { appDataDir } = useAppStore();
+  const { appDataDir, setView } = useAppStore();
   return (
     <div className="kui-settings">
+      <div style={{ marginBottom: 12 }}>
+        <Button
+          type="text"
+          icon={<ArrowLeftOutlined />}
+          onClick={() => setView("chat")}
+        >
+          {t("nav.back")}
+        </Button>
+      </div>
       <Tabs
         defaultActiveKey="general"
         items={[

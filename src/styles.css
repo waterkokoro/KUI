@@ -53,25 +53,7 @@ html, body, #root {
   min-height: 0;
 }
 
-/* ---------- topbar ---------- */
-.kui-topbar {
-  height: 48px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 14px;
-  background: var(--ant-color-bg-container, var(--kui-fallback-bg-2));
-  border-bottom: 1px solid var(--ant-color-border-secondary, var(--kui-fallback-border));
-  user-select: none;
-}
-
-.kui-topbar-brand {
-  font-weight: 700;
-  font-size: 14px;
-  letter-spacing: 0.5px;
-  margin-right: 8px;
-  color: var(--ant-color-text, var(--kui-fallback-text));
-}
+/* ---------- topbar (removed – nav moved to sidebar) ---------- */
 
 /* ---------- sidebar ---------- */
 .kui-sidebar {
@@ -81,6 +63,24 @@ html, body, #root {
   min-height: 0;
   background: var(--ant-color-bg-container, var(--kui-fallback-bg-2));
   border-right: 1px solid var(--ant-color-border-secondary, var(--kui-fallback-border));
+}
+
+.kui-sidebar-brand {
+  display: flex;
+  align-items: center;
+  padding: 12px 12px 8px;
+  gap: 8px;
+  user-select: none;
+}
+
+.kui-logo {
+  font-weight: 800;
+  font-size: 16px;
+  letter-spacing: 1.5px;
+  background: linear-gradient(135deg, #1677ff 0%, #36cfc9 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .kui-sidebar-header {
@@ -177,34 +177,138 @@ html, body, #root {
 .kui-composer {
   background: var(--ant-color-bg-container, var(--kui-fallback-bg-2));
   border-top: 1px solid var(--ant-color-border-secondary, var(--kui-fallback-border));
-  padding: 12px 16px;
+  padding: 14px 16px;
   display: flex;
-  gap: 10px;
-  align-items: flex-end;
+  justify-content: center;
+}
+
+.kui-composer-inner {
+  width: 100%;
+  max-width: none;
+  border: 1px solid var(--ant-color-border, var(--kui-fallback-border));
+  border-radius: 14px;
+  background: var(--ant-color-bg-elevated, var(--kui-fallback-bg-3));
+  overflow: hidden;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.kui-composer-inner:focus-within {
+  border-color: var(--ant-color-primary, #1677ff);
+  box-shadow: 0 0 0 2px var(--ant-color-primary-bg, rgba(22, 119, 255, 0.12));
 }
 
 .kui-composer textarea {
-  flex: 1;
+  width: 100%;
   resize: none;
-  border: 1px solid var(--ant-color-border, var(--kui-fallback-border));
-  border-radius: 10px;
-  background: var(--ant-color-bg-elevated, var(--kui-fallback-bg-3));
+  border: none;
+  background: transparent;
   color: var(--ant-color-text, var(--kui-fallback-text));
-  padding: 10px 12px;
+  padding: 12px 14px 6px;
   font-family: inherit;
   font-size: 14px;
   line-height: 1.5;
   outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-
-.kui-composer textarea:focus {
-  border-color: var(--ant-color-primary, #1677ff);
-  box-shadow: 0 0 0 2px var(--ant-color-primary-bg, rgba(22, 119, 255, 0.15));
+  box-sizing: border-box;
 }
 
 .kui-composer textarea::placeholder {
   color: var(--ant-color-text-placeholder, rgba(255, 255, 255, 0.3));
+}
+
+/* composer 底部工具栏 */
+.kui-composer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px 10px;
+}
+
+.kui-composer-selectors {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* 选择器 pill 按钮 */
+.kui-selector-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--ant-color-border-secondary, var(--kui-fallback-border));
+  background: var(--ant-color-fill-quaternary, rgba(128, 128, 128, 0.06));
+  color: var(--ant-color-text-secondary, rgba(255, 255, 255, 0.65));
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1.4;
+  white-space: nowrap;
+  max-width: 200px;
+}
+
+.kui-selector-pill span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kui-selector-pill:hover {
+  background: var(--ant-color-fill-tertiary, rgba(128, 128, 128, 0.12));
+  border-color: var(--ant-color-border, var(--kui-fallback-border));
+  color: var(--ant-color-text, var(--kui-fallback-text));
+}
+
+.kui-selector-pill:active {
+  opacity: 0.8;
+}
+
+.kui-selector-pill svg {
+  flex-shrink: 0;
+  opacity: 0.5;
+}
+
+.kui-selector-pill .anticon {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+/* 发送按钮 */
+.kui-send-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  border: none;
+  background: var(--ant-color-primary, #1677ff);
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-size: 13px;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+
+.kui-send-btn:hover {
+  background: var(--ant-color-primary-hover, #4096ff);
+  transform: scale(1.05);
+}
+
+.kui-send-btn:active {
+  transform: scale(0.95);
+}
+
+.kui-send-btn--stop {
+  width: auto;
+  padding: 0 12px;
+  background: var(--ant-color-error, #ff4d4f);
+}
+
+.kui-send-btn--stop:hover {
+  background: var(--ant-color-error-hover, #ff7875);
 }
 
 /* ---------- graph ---------- */
@@ -319,19 +423,19 @@ html, body, #root {
 }
 .kui-md blockquote p { margin: 0.2em 0; }
 
-/* 行内 code */
+/* 行内 code — 轻量化样式，避免大量 backtick 内容过于抢眼 */
 .kui-md :not(pre) > code {
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 0.88em;
-  background: var(--ant-color-fill-tertiary, rgba(128, 128, 128, 0.15));
-  border: 1px solid var(--ant-color-border-secondary, var(--kui-fallback-border));
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
-    "Liberation Mono", monospace;
-  color: var(--ant-color-error-text, #d63384);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 0.9em;
+  background: var(--ant-color-fill-quaternary, rgba(128, 128, 128, 0.08));
+  border: none;
+  font-family: inherit;
+  color: inherit;
+  font-weight: 500;
 }
 .kui-md-dark :not(pre) > code {
-  color: #ff7b9c;
+  color: inherit;
 }
 
 /* 链接 */
@@ -377,15 +481,16 @@ html, body, #root {
 .kui-md table tbody tr:hover {
   background: var(--ant-color-fill-quaternary, rgba(128, 128, 128, 0.05));
 }
-/* 表格内的 code 元素：去掉代码块样式，保持普通文本外观 */
+/* 表格内的 code 元素：仅保留淡背景突出，不做代码块展示 */
 .kui-md table code {
-  padding: 0 !important;
-  border-radius: 0 !important;
+  padding: 2px 5px !important;
+  border-radius: 3px !important;
   font-size: inherit !important;
-  background: transparent !important;
+  background: var(--ant-color-fill-quaternary, rgba(128, 128, 128, 0.08)) !important;
   border: none !important;
   font-family: inherit !important;
   color: inherit !important;
+  font-weight: 500;
 }
 
 /* 代码块容器（带语言标签 + 复制按钮） */

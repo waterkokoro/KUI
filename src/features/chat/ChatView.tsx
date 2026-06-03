@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Button, Select, Space, Tooltip, message as antdMessage } from "antd";
-import { CopyOutlined, FolderOpenOutlined, PlusOutlined, SettingOutlined, StopOutlined } from "@ant-design/icons";
+import { Button, Dropdown, Space, Tooltip, message as antdMessage } from "antd";
+import { CopyOutlined, FolderOpenOutlined, PlusOutlined, RobotOutlined, StopOutlined, ThunderboltOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { Markdown } from "../../components/Markdown";
 import { useAppStore } from "../../stores/appStore";
 import { getTopic, updateTopic } from "../../db/repos/topics";
@@ -186,29 +187,12 @@ export function ChatView() {
     <>
       <div className="kui-chat-header">
         <div className="kui-chat-title">{topic.title}</div>
-        <Select
-          size="small"
-          style={{ minWidth: 130 }}
-          placeholder="Agent"
-          value={effectiveAgentId ?? undefined}
-          options={agents.map((a) => ({ value: a.id, label: a.name }))}
-          onChange={onAgentChange}
-        />
-        <Select
-          size="small"
-          style={{ minWidth: 220 }}
-          placeholder="Model"
-          value={effectiveModelRef ?? undefined}
-          options={modelOptions}
-          onChange={onModelChange}
-        />
         <Tooltip title={mdPath}>
           <Button
             size="small"
             icon={<FolderOpenOutlined />}
-            onClick={async () => {
-              await navigator.clipboard.writeText(mdPath);
-              antdMessage.success(t("common.copied"));
+            onClick={() => {
+              if (mdPath) void revealItemInDir(mdPath);
             }}
           >
             {t("topic.openMd")}
@@ -217,7 +201,6 @@ export function ChatView() {
         <Button size="small" icon={<PlusOutlined />} onClick={() => deriveFrom("")}>
           {t("topic.deriveSub")}
         </Button>
-        <Button size="small" icon={<SettingOutlined />} onClick={() => useAppStore.getState().setView("settings")} />
       </div>
 
       <div className="kui-chat-messages">
@@ -249,24 +232,59 @@ export function ChatView() {
       </div>
 
       <div className="kui-composer">
-        <textarea
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={onKey}
-          onCompositionStart={() => (composingRef.current = true)}
-          onCompositionEnd={() => (composingRef.current = false)}
-          placeholder={t("topic.placeholder")}
-          rows={3}
-        />
-        {streaming ? (
-          <Button danger icon={<StopOutlined />} onClick={stop}>
-            {t("chat.stop")}
-          </Button>
-        ) : (
-          <Button type="primary" onClick={send}>
-            {t("chat.send")}
-          </Button>
-        )}
+        <div className="kui-composer-inner">
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={onKey}
+            onCompositionStart={() => (composingRef.current = true)}
+            onCompositionEnd={() => (composingRef.current = false)}
+            placeholder={t("topic.placeholder")}
+            rows={3}
+          />
+          <div className="kui-composer-toolbar">
+            <div className="kui-composer-selectors">
+              <Dropdown
+                trigger={["click"]}
+                menu={{
+                  items: agents.map((a) => ({ key: a.id, label: a.name })),
+                  selectedKeys: effectiveAgentId ? [effectiveAgentId] : [],
+                  onClick: ({ key }) => void onAgentChange(key),
+                }}
+              >
+                <button className="kui-selector-pill">
+                  <RobotOutlined />
+                  <span>{agents.find((a) => a.id === effectiveAgentId)?.name ?? "Agent"}</span>
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.2" fill="none"/></svg>
+                </button>
+              </Dropdown>
+              <Dropdown
+                trigger={["click"]}
+                menu={{
+                  items: modelOptions.map((m) => ({ key: m.value, label: m.label })),
+                  selectedKeys: effectiveModelRef ? [effectiveModelRef] : [],
+                  onClick: ({ key }) => void onModelChange(key),
+                }}
+              >
+                <button className="kui-selector-pill">
+                  <ThunderboltOutlined />
+                  <span>{modelOptions.find((m) => m.value === effectiveModelRef)?.label ?? "Model"}</span>
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.2" fill="none"/></svg>
+                </button>
+              </Dropdown>
+            </div>
+            {streaming ? (
+              <button className="kui-send-btn kui-send-btn--stop" onClick={stop}>
+                <StopOutlined />
+                <span>{t("chat.stop")}</span>
+              </button>
+            ) : (
+              <button className="kui-send-btn" onClick={send}>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2.5 8L13.5 8M9 3.5L13.5 8L9 12.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       {deriveOpen && (

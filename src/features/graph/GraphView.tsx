@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import ReactFlow, {
   Background,
   Controls,
@@ -12,14 +12,15 @@ import ReactFlow, {
   MarkerType,
 } from "reactflow";
 import "reactflow/dist/style.css";
-import { App, Input, Button, Space } from "antd";
+import { App, Input, Button, Space, Tooltip } from "antd";
+import { SwapOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { listTopics } from "../../db/repos/topics";
 import { listLinks, createLink, updateLinkNote, deleteLink } from "../../db/repos/links";
 import type { Topic } from "../../types";
 import { useAppStore } from "../../stores/appStore";
 
-function layoutTree(topics: Topic[]): Map<string, { x: number; y: number }> {
+function layoutTree(topics: Topic[], direction: "vertical" | "horizontal" = "vertical"): Map<string, { x: number; y: number }> {
   const childrenOf = new Map<string | null, Topic[]>();
   for (const t of topics) {
     const k = t.parent_id;
@@ -27,7 +28,9 @@ function layoutTree(topics: Topic[]): Map<string, { x: number; y: number }> {
     childrenOf.get(k)!.push(t);
   }
   const pos = new Map<string, { x: number; y: number }>();
-  let xCursor = 0;
+  let cursor = 0;
+  const spreadGap = direction === "vertical" ? 220 : 160;
+  const depthGap = direction === "vertical" ? 130 : 220;
   const dfs = (id: string | null, depth: number) => {
     const list = childrenOf.get(id) ?? [];
     for (const c of list) {
@@ -36,12 +39,22 @@ function layoutTree(topics: Topic[]): Map<string, { x: number; y: number }> {
     if (id !== null) {
       const kids = childrenOf.get(id) ?? [];
       if (kids.length === 0) {
-        pos.set(id, { x: xCursor * 220, y: depth * 130 });
-        xCursor += 1;
+        if (direction === "vertical") {
+          pos.set(id, { x: cursor * spreadGap, y: depth * depthGap });
+        } else {
+          pos.set(id, { x: depth * depthGap, y: cursor * spreadGap });
+        }
+        cursor += 1;
       } else {
-        const xs = kids.map((c) => pos.get(c.id)!.x);
-        const x = (Math.min(...xs) + Math.max(...xs)) / 2;
-        pos.set(id, { x, y: depth * 130 });
+        if (direction === "vertical") {
+          const xs = kids.map((c) => pos.get(c.id)!.x);
+          const x = (Math.min(...xs) + Math.max(...xs)) / 2;
+          pos.set(id, { x, y: depth * depthGap });
+        } else {
+          const ys = kids.map((c) => pos.get(c.id)!.y);
+          const y = (Math.min(...ys) + Math.max(...ys)) / 2;
+          pos.set(id, { x: depth * depthGap, y });
+        }
       }
     }
   };
@@ -59,10 +72,11 @@ export function GraphView() {
   const { currentTopicId, setCurrentTopic, setView } = useAppStore();
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [direction, setDirection] = useState<"vertical" | "horizontal">("vertical");
 
   const reload = useCallback(async () => {
     const [topics, links] = await Promise.all([listTopics(), listLinks()]);
-    const pos = layoutTree(topics);
+    const pos = layoutTree(topics, direction);
     const ns: Node[] = topics.map((t) => ({
       id: t.id,
       data: { label: t.title || "untitled" },
@@ -103,7 +117,7 @@ export function GraphView() {
     }
     setNodes(ns);
     setEdges(es);
-  }, [currentTopicId, setEdges, setNodes]);
+  }, [currentTopicId, direction, setEdges, setNodes]);
 
   useEffect(() => {
     void reload();
@@ -173,6 +187,13 @@ export function GraphView() {
       <div className="kui-chat-header">
         <span style={{ fontSize: 12, opacity: 0.7 }}>{t("graph.tip")}</span>
         <div style={{ flex: 1 }} />
+        <Tooltip title={t("graph.toggleDirection")}>
+          <Button
+            size="small"
+            icon={<SwapOutlined rotate={direction === "vertical" ? 90 : 0} />}
+            onClick={() => setDirection((d) => (d === "vertical" ? "horizontal" : "vertical"))}
+          />
+        </Tooltip>
         <Button size="small" onClick={() => void reload()}>
           {t("graph.layoutReset")}
         </Button>

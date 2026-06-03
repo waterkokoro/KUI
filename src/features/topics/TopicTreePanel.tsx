@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { App, Tree, Input, Button, Modal, Menu } from "antd";
-import { PlusOutlined } from "@ant-design/icons";
+import { App, Tree, Input, Button, Modal, Menu, Tooltip, Space } from "antd";
+import { PlusOutlined, MessageOutlined, ApartmentOutlined, SettingOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../../stores/appStore";
 import {
@@ -14,6 +14,14 @@ import { deleteTopicDir } from "../../fs/mdRepo";
 import { buildTree, type TreeNode } from "./topicTree";
 import type { Topic } from "../../types";
 
+/** 常用 emoji 供快速选择 */
+const EMOJI_PRESETS = [
+  "📄", "📁", "📝", "📌", "📎", "📚", "📖", "📕",
+  "💡", "💬", "💻", "🔬", "🧪", "🎯", "🎨", "🏷️",
+  "⭐", "🔥", "✅", "❓", "🚀", "🛠️", "🧠", "📊",
+  "🌐", "🔗", "🗂️", "📋", "🏠", "🎓", "🔑", "🌟",
+];
+
 interface RawNode {
   key: string;
   title: React.ReactNode;
@@ -21,12 +29,17 @@ interface RawNode {
   children?: RawNode[];
 }
 
+const DEFAULT_ICON = "💬";
+
 function toAntd(nodes: TreeNode[], untitled: string): RawNode[] {
   return nodes.map((n) => ({
     key: n.key,
     raw: n.topic,
     title: (
       <span style={{ display: "inline-block", width: "100%" }}>
+        <span style={{ marginRight: 5, fontSize: "1em" }}>
+          {n.topic.icon || DEFAULT_ICON}
+        </span>
         {n.topic.title || untitled}
       </span>
     ),
@@ -37,7 +50,7 @@ function toAntd(nodes: TreeNode[], untitled: string): RawNode[] {
 export function TopicTreePanel() {
   const { t } = useTranslation();
   const { modal, message } = App.useApp();
-  const { currentTopicId, setCurrentTopic, treeReloadKey, reloadTree, setView } =
+  const { currentTopicId, setCurrentTopic, treeReloadKey, reloadTree, setView, view } =
     useAppStore();
   const [topics, setTopics] = useState<Topic[]>([]);
   const [filter, setFilter] = useState("");
@@ -49,6 +62,11 @@ export function TopicTreePanel() {
 
   // 重命名 Modal 受控 state（替代闭包式写法，避免不刷新）
   const [renaming, setRenaming] = useState<{ topic: Topic; name: string } | null>(
+    null
+  );
+
+  // 图标选择 Modal
+  const [iconPicking, setIconPicking] = useState<{ topic: Topic; icon: string } | null>(
     null
   );
 
@@ -122,6 +140,8 @@ export function TopicTreePanel() {
     } else if (key === "openGraph") {
       setCurrentTopic(topic.id);
       setView("graph");
+    } else if (key === "setIcon") {
+      setIconPicking({ topic, icon: topic.icon || "" });
     }
   };
 
@@ -140,6 +160,7 @@ export function TopicTreePanel() {
     ? [
         { key: "newChild", label: t("tree.menu.newChild") },
         { key: "rename", label: t("tree.menu.rename") },
+        { key: "setIcon", label: t("tree.menu.setIcon") },
         {
           key: "promote",
           label: t("tree.menu.promote"),
@@ -159,6 +180,37 @@ export function TopicTreePanel() {
 
   return (
     <div className="kui-sidebar">
+      {/* Logo + 全局导航 */}
+      <div className="kui-sidebar-brand">
+        <span className="kui-logo">KUI</span>
+        <div style={{ flex: 1 }} />
+        <Space size={2}>
+          <Tooltip title={t("nav.chat")}>
+            <Button
+              size="small"
+              type={view === "chat" ? "primary" : "text"}
+              icon={<MessageOutlined />}
+              onClick={() => setView("chat")}
+            />
+          </Tooltip>
+          <Tooltip title={t("nav.graph")}>
+            <Button
+              size="small"
+              type={view === "graph" ? "primary" : "text"}
+              icon={<ApartmentOutlined />}
+              onClick={() => setView("graph")}
+            />
+          </Tooltip>
+          <Tooltip title={t("nav.settings")}>
+            <Button
+              size="small"
+              type={view === "settings" ? "primary" : "text"}
+              icon={<SettingOutlined />}
+              onClick={() => setView("settings")}
+            />
+          </Tooltip>
+        </Space>
+      </div>
       <div className="kui-sidebar-header">
         <Input
           placeholder={t("tree.searchPlaceholder")}
@@ -268,6 +320,67 @@ export function TopicTreePanel() {
             reloadTree();
           }}
         />
+      </Modal>
+
+      {/* 图标选择 Modal */}
+      <Modal
+        title={t("tree.menu.setIcon")}
+        open={!!iconPicking}
+        onCancel={() => setIconPicking(null)}
+        onOk={async () => {
+          if (!iconPicking) return;
+          const icon = iconPicking.icon.trim() || null;
+          await updateTopic(iconPicking.topic.id, { icon });
+          setIconPicking(null);
+          reloadTree();
+        }}
+        destroyOnClose
+        okText={t("common.save")}
+        cancelText={t("common.cancel")}
+        width={400}
+      >
+        <div style={{ marginBottom: 12 }}>
+          <Input
+            value={iconPicking?.icon ?? ""}
+            placeholder={t("tree.icon.inputPlaceholder")}
+            autoFocus
+            onChange={(e) =>
+              setIconPicking((s) => (s ? { ...s, icon: e.target.value } : s))
+            }
+            suffix={
+              iconPicking?.icon ? (
+                <span
+                  style={{ cursor: "pointer", opacity: 0.5 }}
+                  onClick={() =>
+                    setIconPicking((s) => (s ? { ...s, icon: "" } : s))
+                  }
+                >
+                  {t("tree.icon.clear")}
+                </span>
+              ) : null
+            }
+          />
+        </div>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(8, 1fr)",
+            gap: 4,
+          }}
+        >
+          {EMOJI_PRESETS.map((emoji) => (
+            <Button
+              key={emoji}
+              type={iconPicking?.icon === emoji ? "primary" : "text"}
+              style={{ fontSize: 18, width: 36, height: 36, padding: 0 }}
+              onClick={() =>
+                setIconPicking((s) => (s ? { ...s, icon: emoji } : s))
+              }
+            >
+              {emoji}
+            </Button>
+          ))}
+        </div>
       </Modal>
     </div>
   );

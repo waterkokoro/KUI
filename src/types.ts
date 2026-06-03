@@ -4,6 +4,7 @@ export interface Topic {
   id: ID;
   parent_id: ID | null;
   title: string;
+  icon: string | null;
   agent_id: ID | null;
   model_ref: string | null; // "providerId:modelId"
   summary: string | null;

@@ -37,8 +37,8 @@ function CodeRenderer({ inline, className, children, ...rest }: CodeProps) {
   const lang = /language-(\w+)/.exec(className ?? "")?.[1] ?? "";
   const raw = String(children ?? "").replace(/\n$/, "");
 
-  // 行内 code
-  if (inline) {
+  // 行内 code：显式 inline 标记，或者无语言标识且内容无换行（表格/正文内的反引号）
+  if (inline || (!lang && !raw.includes("\n"))) {
     return (
       <code className={className} {...rest}>
         {children}

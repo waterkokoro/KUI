@@ -18,6 +18,7 @@ export async function getTopic(id: ID): Promise<Topic | null> {
 export async function createTopic(input: {
   title: string;
   parent_id?: ID | null;
+  icon?: string | null;
   agent_id?: ID | null;
   model_ref?: string | null;
   summary?: string | null;
@@ -29,6 +30,7 @@ export async function createTopic(input: {
     id,
     parent_id: input.parent_id ?? null,
     title: input.title || "Untitled",
+    icon: input.icon ?? null,
     agent_id: input.agent_id ?? null,
     model_ref: input.model_ref ?? null,
     summary: input.summary ?? null,
@@ -37,12 +39,13 @@ export async function createTopic(input: {
     updated_at: now,
   };
   await db.execute(
-    `INSERT INTO topics (id, parent_id, title, agent_id, model_ref, summary, sort_order, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO topics (id, parent_id, title, icon, agent_id, model_ref, summary, sort_order, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       row.id,
       row.parent_id,
       row.title,
+      row.icon,
       row.agent_id,
       row.model_ref,
       row.summary,
@@ -61,6 +64,7 @@ export async function updateTopic(id: ID, patch: Partial<Topic>): Promise<void> 
   for (const k of [
     "parent_id",
     "title",
+    "icon",
     "agent_id",
     "model_ref",
     "summary",

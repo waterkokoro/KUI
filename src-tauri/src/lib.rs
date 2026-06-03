@@ -121,12 +121,20 @@ fn app_data_dir(app: tauri::AppHandle) -> Result<String, String> {
 }
 
 fn migrations() -> Vec<Migration> {
-    vec![Migration {
-        version: 1,
-        description: "initial schema",
-        sql: include_str!("../migrations/001_init.sql"),
-        kind: MigrationKind::Up,
-    }]
+    vec![
+        Migration {
+            version: 1,
+            description: "initial schema",
+            sql: include_str!("../migrations/001_init.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 2,
+            description: "add topic icon",
+            sql: include_str!("../migrations/002_add_topic_icon.sql"),
+            kind: MigrationKind::Up,
+        },
+    ]
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
