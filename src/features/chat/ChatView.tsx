@@ -13,6 +13,13 @@ import { topicMdAbsPath, appendMessageMd } from "../../fs/mdRepo";
 import type { Agent, MessageRow, ModelRow, Provider, Topic } from "../../types";
 import { runAgent } from "../agent/runAgent";
 import { DeriveSubTopicModal } from "./DeriveSubTopicModal";
+import kuiDef from "../../assets/kui/kui_def.png";
+import kui01 from "../../assets/kui/kui01_emoji.png";
+import kui02 from "../../assets/kui/kui02_emoji.png";
+import kui03 from "../../assets/kui/kui03_emoji.png";
+import kui04 from "../../assets/kui/kui04_emoji.png";
+
+const MASCOT_IMGS = [kuiDef, kui01, kui02, kui03, kui04];
 
 /** 根据小时数返回问候语 i18n key */
 function getGreetingKey(): string {
@@ -41,6 +48,14 @@ function useDailySlogan() {
     return day % SLOGAN_KEYS.length;
   }, []);
   return SLOGAN_KEYS[idx];
+}
+
+/** 每次进入空白页随机选一张吉祥物表情 */
+function useRandomMascot() {
+  return useMemo(() => {
+    const idx = Math.floor(Math.random() * MASCOT_IMGS.length);
+    return MASCOT_IMGS[idx];
+  }, []);
 }
 
 export function ChatView() {
@@ -226,12 +241,13 @@ export function ChatView() {
   };
 
   const sloganKey = useDailySlogan();
+  const mascotImg = useRandomMascot();
 
   if (!currentTopicId || !topic) {
     return (
       <div className="kui-empty">
         <div className="kui-empty-content">
-          <div className="kui-empty-icon">💬</div>
+          <img src={mascotImg} alt="KUI" className="kui-empty-icon" />
           <div className="kui-empty-greeting">{t(getGreetingKey())}</div>
           <div className="kui-empty-slogan">{t(sloganKey)}</div>
           <div className="kui-empty-hint">{t("topic.empty")}</div>
@@ -282,7 +298,7 @@ export function ChatView() {
       <div className="kui-chat-messages">
         {messages.length === 0 && !streaming && (
           <div className="kui-empty-inline">
-            <div className="kui-empty-icon">💬</div>
+            <img src={mascotImg} alt="KUI" className="kui-empty-icon" />
             <div className="kui-empty-greeting">{t(getGreetingKey())}</div>
             <div className="kui-empty-slogan">{t(sloganKey)}</div>
             <div className="kui-empty-hint">{t("empty.startHint")}</div>

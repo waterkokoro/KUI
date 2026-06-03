@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { App, Tree, Input, Button, Modal, Menu, Tooltip, Space } from "antd";
 import { PlusOutlined, MessageOutlined, ApartmentOutlined, SettingOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
+import mascotImg from "../../assets/kui/kui_def.png";
 import { useAppStore } from "../../stores/appStore";
 import {
   listTopics,
@@ -182,7 +183,10 @@ export function TopicTreePanel() {
     <div className="kui-sidebar">
       {/* Logo + 全局导航 */}
       <div className="kui-sidebar-brand">
-        <span className="kui-logo">KUI</span>
+        <div className="kui-brand-badge">
+          <img src={mascotImg} alt="KUI mascot" className="kui-mascot" />
+          <span className="kui-logo">KUI</span>
+        </div>
         <div style={{ flex: 1 }} />
         <Space size={2}>
           <Tooltip title={t("nav.chat")}>
