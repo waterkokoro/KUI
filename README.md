@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./src/assets/kui/kui_def.png" alt="KUI" width="120">
+</p>
+
 # KUI
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
