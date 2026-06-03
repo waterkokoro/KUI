@@ -88,5 +88,17 @@
   "common.empty": "Empty",
   "common.copy": "Copy",
   "common.copied": "Copied",
-  "common.error": "Error"
+  "common.error": "Error",
+  "empty.greeting.morning": "Good morning ☀️",
+  "empty.greeting.noon": "Good afternoon 🌤️",
+  "empty.greeting.afternoon": "Good afternoon 🍵",
+  "empty.greeting.evening": "Good evening 🌙",
+  "empty.greeting.night": "Burning the midnight oil 🌌",
+  "empty.slogan.1": "A great question is the seed of every discovery.",
+  "empty.slogan.2": "Every conversation is a journey of thought.",
+  "empty.slogan.3": "Capture inspiration before it fades.",
+  "empty.slogan.4": "Knowledge grows through accumulation and lives on in notes.",
+  "empty.slogan.5": "A small thought today, a big insight tomorrow.",
+  "empty.slogan.6": "Let ideas flow freely; let your notes remember everything.",
+  "empty.startHint": "Start a conversation in the input below ↓"
 }

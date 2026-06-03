@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Button, Dropdown, Space, Tooltip, message as antdMessage } from "antd";
-import { CopyOutlined, FolderOpenOutlined, PlusOutlined, RobotOutlined, StopOutlined, ThunderboltOutlined } from "@ant-design/icons";
+import { Button, Dropdown, Input, Space, Tooltip, message as antdMessage } from "antd";
+import { CopyOutlined, EditOutlined, FolderOpenOutlined, PlusOutlined, RobotOutlined, StopOutlined, ThunderboltOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { Markdown } from "../../components/Markdown";
@@ -13,6 +13,35 @@ import { topicMdAbsPath, appendMessageMd } from "../../fs/mdRepo";
 import type { Agent, MessageRow, ModelRow, Provider, Topic } from "../../types";
 import { runAgent } from "../agent/runAgent";
 import { DeriveSubTopicModal } from "./DeriveSubTopicModal";
+
+/** 根据小时数返回问候语 i18n key */
+function getGreetingKey(): string {
+  const h = new Date().getHours();
+  if (h >= 5 && h < 12) return "empty.greeting.morning";
+  if (h >= 12 && h < 14) return "empty.greeting.noon";
+  if (h >= 14 && h < 18) return "empty.greeting.afternoon";
+  if (h >= 18 && h < 22) return "empty.greeting.evening";
+  return "empty.greeting.night";
+}
+
+/** 随机励志话语，每次渲染稳定一句 */
+const SLOGAN_KEYS = [
+  "empty.slogan.1",
+  "empty.slogan.2",
+  "empty.slogan.3",
+  "empty.slogan.4",
+  "empty.slogan.5",
+  "empty.slogan.6",
+];
+
+function useDailySlogan() {
+  // 每天换一句，基于日期做index
+  const idx = useMemo(() => {
+    const day = Math.floor(Date.now() / 86400000);
+    return day % SLOGAN_KEYS.length;
+  }, []);
+  return SLOGAN_KEYS[idx];
+}
 
 export function ChatView() {
   const { t } = useTranslation();
@@ -174,19 +203,66 @@ export function ChatView() {
     }
   };
 
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [editTitleValue, setEditTitleValue] = useState("");
+
+  const startEditTitle = () => {
+    setEditTitleValue(topic?.title ?? "");
+    setEditingTitle(true);
+  };
+
+  const saveTitle = async () => {
+    if (!topic) return;
+    const next = editTitleValue.trim() || t("topic.untitled");
+    await updateTopic(topic.id, { title: next });
+    setTopic({ ...topic, title: next });
+    setEditingTitle(false);
+    reloadTree();
+  };
+
   const deriveFrom = (seedContent: string) => {
     setDeriveSeed(seedContent);
     setDeriveOpen(true);
   };
 
+  const sloganKey = useDailySlogan();
+
   if (!currentTopicId || !topic) {
-    return <div className="kui-empty">{t("topic.empty")}</div>;
+    return (
+      <div className="kui-empty">
+        <div className="kui-empty-content">
+          <div className="kui-empty-icon">💬</div>
+          <div className="kui-empty-greeting">{t(getGreetingKey())}</div>
+          <div className="kui-empty-slogan">{t(sloganKey)}</div>
+          <div className="kui-empty-hint">{t("topic.empty")}</div>
+        </div>
+      </div>
+    );
   }
 
   return (
     <>
       <div className="kui-chat-header">
-        <div className="kui-chat-title">{topic.title}</div>
+        <div className="kui-chat-title-group">
+          {editingTitle ? (
+            <Input
+              size="small"
+              className="kui-chat-title-input"
+              value={editTitleValue}
+              onChange={(e) => setEditTitleValue(e.target.value)}
+              onPressEnter={() => void saveTitle()}
+              onBlur={() => void saveTitle()}
+              autoFocus
+            />
+          ) : (
+            <>
+              <span className="kui-chat-title">{topic.title}</span>
+              <Tooltip title={t("tree.menu.rename")}>
+                <Button type="text" size="small" icon={<EditOutlined />} onClick={startEditTitle} />
+              </Tooltip>
+            </>
+          )}
+        </div>
         <Tooltip title={mdPath}>
           <Button
             size="small"
@@ -204,6 +280,14 @@ export function ChatView() {
       </div>
 
       <div className="kui-chat-messages">
+        {messages.length === 0 && !streaming && (
+          <div className="kui-empty-inline">
+            <div className="kui-empty-icon">💬</div>
+            <div className="kui-empty-greeting">{t(getGreetingKey())}</div>
+            <div className="kui-empty-slogan">{t(sloganKey)}</div>
+            <div className="kui-empty-hint">{t("empty.startHint")}</div>
+          </div>
+        )}
         {messages.map((m) => (
           <div key={m.id} className={`kui-chat-bubble ${m.role}`}>
             <div className="kui-chat-meta">

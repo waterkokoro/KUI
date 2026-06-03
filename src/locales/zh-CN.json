@@ -88,5 +88,17 @@
   "common.empty": "暂无内容",
   "common.copy": "复制",
   "common.copied": "已复制",
-  "common.error": "出错了"
+  "common.error": "出错了",
+  "empty.greeting.morning": "早上好 ☀️",
+  "empty.greeting.noon": "中午好 🌤️",
+  "empty.greeting.afternoon": "下午好 🍵",
+  "empty.greeting.evening": "晚上好 🌙",
+  "empty.greeting.night": "夜深了 🌌",
+  "empty.slogan.1": "好的问题，是一切探索的起点。",
+  "empty.slogan.2": "每一次对话，都是一次思维的旅行。",
+  "empty.slogan.3": "把灵感记下来，它不会等你。",
+  "empty.slogan.4": "知识在积累中生长，在记录中永存。",
+  "empty.slogan.5": "今天的一小步思考，是明天的一大步洞见。",
+  "empty.slogan.6": "让想法自由流动，让笔记替你记住一切。",
+  "empty.startHint": "在下方输入框开始对话吧 ↓"
 }

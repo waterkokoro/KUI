@@ -121,13 +121,25 @@ html, body, #root {
   flex-shrink: 0;
 }
 
+.kui-chat-title-group {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .kui-chat-title {
   font-weight: 600;
   font-size: 14px;
-  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.kui-chat-title-input {
+  flex: 1;
+  min-width: 0;
 }
 
 /* ---------- chat ---------- */
@@ -332,6 +344,61 @@ html, body, #root {
   flex: 1;
   color: var(--ant-color-text-secondary, rgba(255, 255, 255, 0.45));
   font-size: 14px;
+}
+
+.kui-empty-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  padding: 40px 20px;
+  animation: kui-empty-fade 0.6s ease;
+}
+
+@keyframes kui-empty-fade {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.kui-empty-icon {
+  font-size: 48px;
+  line-height: 1;
+  opacity: 0.6;
+  margin-bottom: 4px;
+}
+
+.kui-empty-greeting {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--ant-color-text, var(--kui-fallback-text));
+}
+
+.kui-empty-slogan {
+  font-size: 14px;
+  color: var(--ant-color-text-tertiary, rgba(255, 255, 255, 0.35));
+  max-width: 320px;
+  line-height: 1.6;
+  font-style: italic;
+}
+
+.kui-empty-hint {
+  font-size: 13px;
+  margin-top: 12px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  background: var(--ant-color-fill-quaternary, rgba(128, 128, 128, 0.06));
+  color: var(--ant-color-text-secondary, rgba(255, 255, 255, 0.45));
+}
+
+.kui-empty-inline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  padding: 60px 20px;
+  animation: kui-empty-fade 0.6s ease;
 }
 
 .kui-settings {
