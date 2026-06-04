@@ -88,44 +88,95 @@ echo -e "${GREEN}========================================${NC}"
 echo ""
 
 # 询问是否继续 git 操作
-echo -e "${YELLOW}接下来将执行以下 git 操作:${NC}"
-echo "  1. git add -A"
-echo "  2. git commit -m \"release: v${VERSION}\""
-echo "  3. git tag v${VERSION}"
-echo "  4. git push && git push --tags"
+echo -e "${YELLOW}接下来将引导你撰写本版本的 commit / tag 说明，并执行 git 操作:${NC}"
+echo "  1. 打开编辑器撰写 v${VERSION} 的更新要点"
+echo "  2. git add -A"
+echo "  3. git commit -F <你的内容>"
+echo "  4. git tag -a v${VERSION} -F <你的内容>"
+echo "  5. git push && git push --tags"
 echo ""
 read -p "是否继续? (y/N) " -n 1 -r
 echo ""
 
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-  echo ""
-  echo -e "${YELLOW}执行 git 操作...${NC}"
-  
-  git add -A
-  echo -e "${GREEN}  ✓ git add${NC}"
-  
-  git commit -m "release: v${VERSION}"
-  echo -e "${GREEN}  ✓ git commit${NC}"
-  
-  git tag "v${VERSION}"
-  echo -e "${GREEN}  ✓ git tag v${VERSION}${NC}"
-  
-  git push
-  echo -e "${GREEN}  ✓ git push${NC}"
-  
-  git push --tags
-  echo -e "${GREEN}  ✓ git push --tags${NC}"
-  
-  echo ""
-  echo -e "${GREEN}========================================${NC}"
-  echo -e "${GREEN}  🎉 v${VERSION} 发布完成！${NC}"
-  echo -e "${GREEN}  GitHub Actions 将自动构建发布包${NC}"
-  echo -e "${GREEN}========================================${NC}"
-else
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
   echo ""
   echo -e "${YELLOW}已跳过 git 操作。你可以手动执行:${NC}"
   echo "  git add -A"
-  echo "  git commit -m \"release: v${VERSION}\""
-  echo "  git tag v${VERSION}"
+  echo "  git commit            # 自行撰写 commit 内容"
+  echo "  git tag -a v${VERSION}  # annotated tag"
   echo "  git push && git push --tags"
+  exit 0
 fi
+
+# === 撰写本版本的 commit / tag 说明 ===
+COMMIT_MSG_FILE="$(mktemp -t kui-release-XXXXXX)"
+trap 'rm -f "$COMMIT_MSG_FILE"' EXIT
+
+cat > "$COMMIT_MSG_FILE" <<EOF
+release: v${VERSION}
+
+# 请在上方标题下方，填写本版本的更新要点（每行一条，建议以 "- " 开头）。
+# 以 '#' 开头的行会被忽略；如果除标题外没有任何内容，将取消发布。
+#
+# 示例:
+#   - 修复 macOS 拖动区域在某些场景下失效的问题
+#   - 新增 思考模式 的 UI 展示
+#   - 优化 README 排版与版本徽章
+
+- 
+EOF
+
+EDITOR_CMD="${EDITOR:-${VISUAL:-vim}}"
+echo ""
+echo -e "${YELLOW}打开 ${EDITOR_CMD} 撰写 v${VERSION} 的更新内容...${NC}"
+sleep 1
+"$EDITOR_CMD" "$COMMIT_MSG_FILE"
+
+# 去掉注释行 + 去掉首尾空行
+CLEAN_MSG="$(grep -v '^[[:space:]]*#' "$COMMIT_MSG_FILE" | awk 'NF{found=1} found' | awk '{a[NR]=$0} END{for(i=NR;i>=1;i--){if(!done && a[i]~/^[[:space:]]*$/) continue; done=1; b[i]=a[i]} for(i=1;i<=NR;i++) if(i in b) print b[i]}')"
+
+# 至少要有标题以外的一行非空内容
+BODY_LINES="$(printf '%s\n' "$CLEAN_MSG" | tail -n +2 | grep -v '^[[:space:]]*$' | wc -l | tr -d ' ')"
+if [ -z "$(printf '%s' "$CLEAN_MSG" | tr -d '[:space:]')" ] || [ "$BODY_LINES" -eq 0 ]; then
+  echo -e "${RED}错误: 未填写任何更新要点，已取消发布。${NC}"
+  exit 1
+fi
+
+printf '%s\n' "$CLEAN_MSG" > "$COMMIT_MSG_FILE"
+
+echo ""
+echo -e "${BLUE}---------- commit / tag 内容预览 ----------${NC}"
+cat "$COMMIT_MSG_FILE"
+echo -e "${BLUE}-------------------------------------------${NC}"
+echo ""
+read -p "确认以上内容并提交? (y/N) " -n 1 -r
+echo ""
+
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+  echo -e "${YELLOW}已取消。版本号文件改动仍保留在工作区，可手动处理。${NC}"
+  exit 0
+fi
+
+echo ""
+echo -e "${YELLOW}执行 git 操作...${NC}"
+
+git add -A
+echo -e "${GREEN}  ✓ git add${NC}"
+
+git commit -F "$COMMIT_MSG_FILE"
+echo -e "${GREEN}  ✓ git commit${NC}"
+
+git tag -a "v${VERSION}" -F "$COMMIT_MSG_FILE"
+echo -e "${GREEN}  ✓ git tag -a v${VERSION}${NC}"
+
+git push
+echo -e "${GREEN}  ✓ git push${NC}"
+
+git push --tags
+echo -e "${GREEN}  ✓ git push --tags${NC}"
+
+echo ""
+echo -e "${GREEN}========================================${NC}"
+echo -e "${GREEN}  🎉 v${VERSION} 发布完成！${NC}"
+echo -e "${GREEN}  GitHub Actions 将自动构建发布包${NC}"
+echo -e "${GREEN}========================================${NC}"

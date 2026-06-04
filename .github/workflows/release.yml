@@ -27,7 +27,7 @@ jobs:
               tag_name: `${context.ref_name}`,
               name: `KUI ${context.ref_name}`,
               body: 'See the assets to download and install this version.',
-              draft: true,
+              draft: false,
               prerelease: false
             });
             return data.id;
@@ -79,6 +79,6 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: 'KUI ${{ github.ref_name }}'
           releaseBody: 'See the assets to download and install this version.'
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}

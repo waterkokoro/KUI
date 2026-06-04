@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
-  <a href="https://github.com/waterkokoro/KUI/releases"><img src="https://img.shields.io/badge/version-0.1.3-blue" alt="Version"></a>
+  <a href="https://github.com/waterkokoro/KUI/releases"><img src="https://img.shields.io/badge/version-0.1.4-blue" alt="Version"></a>
   <a href="https://github.com/waterkokoro/KUI/stargazers"><img src="https://img.shields.io/github/stars/waterkokoro/KUI?style=social" alt="Stars"></a>
   <a href="https://github.com/waterkokoro/KUI/network/members"><img src="https://img.shields.io/github/forks/waterkokoro/KUI?style=social" alt="Forks"></a>
   <a href="https://github.com/waterkokoro/KUI/issues"><img src="https://img.shields.io/github/issues/waterkokoro/KUI" alt="Issues"></a>
@@ -27,99 +27,84 @@
 
 ## 📖 Introduction
 
-**KUI** is a notebook-style AI chat client that seamlessly integrates AI conversations with knowledge management. Organize your conversations like a notebook, manage knowledge structures with a tree directory, visualize knowledge connections with a graph view, and let AI become your thinking partner.
-
-### Highlights
-
-- 🚀 **Lightweight & Fast** — Built with Tauri 2 + React 19 + TypeScript, native performance with minimal resource usage
-- 🌳 **Tree-based Knowledge Management** — Hierarchical Topic directory with unlimited nesting, drag-and-drop sorting, and emoji icons
-- 🤖 **Multi-model Support** — Compatible with OpenAI API and Anthropic Claude, freely configure multiple Providers
-- 🛠️ **Smart Agent Tools** — AI can proactively search notes, tag topics, generate summaries, and recall context
-- 🗺️ **Graph View** — Visualize hierarchical and manual relationships between Topics
-- 📝 **Markdown Persistence** — Each Topic auto-generates a Markdown file, editable with external editors
-- 🌙 **Dark & Light Themes** — One-click theme switching
-- 🌐 **Bilingual** — Full i18n support (简体中文 / English)
-- 🔧 **Cross-platform** — Windows, macOS, and Linux
+**KUI** is a notebook-style AI chat client. Organize your AI conversations like a notebook, build knowledge structures with a tree directory, derive sub-topics from conversations to explore deeper, and automatically persist every conversation as a Markdown file.
 
 ---
 
 ## 📸 Preview
 
 <p align="center">
-  <img src="./pics/kui-use.png" alt="KUI Interface" width="700">
+  <img src="./pics/kui_n1.png" alt="KUI Main Interface - Topic Tree & Welcome" width="700">
   <br><br>
-  <img src="./pics/kui-cav.png" alt="KUI Graph View" width="700">
+  <img src="./pics/kui_n4.png" alt="KUI Chat & Context Menu" width="700">
+  <br><br>
+  <img src="./pics/kui_n2.png" alt="KUI Graph View - Knowledge Graph" width="700">
+  <br><br>
+  <img src="./pics/kui_n3.png" alt="KUI Agent Management" width="700">
 </p>
 
 ---
 
-## ✨ Features
+## ✨ Key Features
 
-### 💬 Chat System
+### 🌳 Tree Directory Management
 
-| Feature | Description |
-|---------|-------------|
-| Multi-turn Streaming | Context-aware multi-turn AI conversations with token-by-token streaming |
-| Model Switching | Each Topic can independently specify its Agent and model |
-| Conversation Derivation | Derive sub-Topics from any message with automatic context compression |
-| Message Actions | Copy or delete individual messages |
-| Stop Generation | Abort AI output at any time |
+- Unlimited nesting levels for Topics, organize knowledge like a file system
+- Custom Emoji icons for each Topic to quickly identify content types
+- Full-text search and filtering across all topics in real-time
+- Right-click menu: new child topic, rename, set icon, promote to root, open in graph, delete
 
-### 🌳 Knowledge Management
+### 💬 Conversation Derivation & Sub-Topics
 
-| Feature | Description |
-|---------|-------------|
-| Tree Topic Directory | Unlimited nesting levels, drag-and-drop sorting |
-| Emoji Icons | 32 presets + custom emoji as Topic icons |
-| Full-text Search | Regex/text search across all notes with instant results |
-| Tag System | Tag Topics for categorized management |
-| Auto Summary | AI-generated Topic summaries with regeneration support |
-| Markdown Files | Each Topic persisted as `.md` file, externally editable |
+- Derive sub-Topics from any message in a conversation, exploring layer by layer
+- Automatically compress parent conversation into a summary as context for the child topic
+- Child topics inherit parent's agent and model configuration
 
-### 🤖 Smart Agents
+### 🔭 Locate in Tree
 
-| Feature | Description |
-|---------|-------------|
-| Custom Agents | Create multiple Agents with different personas/system prompts |
-| Built-in Tools | `search_notes` full-text search, `get_topic_tree` directory access, `recall_context` context recall, `tag_topic` tagging, `save_topic_summary` summary management |
-| Multi-step Reasoning | Up to 6 tool calls per request |
-| Default Model Binding | Agents can bind a default model for out-of-the-box usage |
+- One-click locate current topic's position in the directory tree
+- Auto-expand ancestor nodes with smooth scroll to target
+- Quickly find your current session in deeply nested trees
+
+### 🤖 Custom Agents
+
+- Create multiple AI agents with different personas and system prompts
+- Customize avatar for each agent (text or image)
+- Bind default model to agents, switch agents on-the-fly during chat
+- Built-in tools: search notes, get topic tree, recall context, tag topics, manage summaries
+
+### 📝 Markdown Export & Persistence
+
+- Every Topic's conversation is automatically saved as a `.md` file
+- One-click open source file in external editor
+- AI agents can search all Markdown content for cross-topic knowledge recall
 
 ### 🗺️ Graph View
 
-| Feature | Description |
-|---------|-------------|
-| Knowledge Graph | Visualize hierarchical relationships of all Topics |
-| Manual Links | Drag to create manual connections (dashed lines) between Topics with notes |
-| Layout Toggle | Switch between vertical and horizontal layouts |
-| Interactions | Zoom, pan, and minimap navigation |
+- Visualize hierarchical relationships of all Topics
+- Drag to create manual links (dashed lines) with notes
+- Vertical / horizontal layout toggle, minimap navigation
 
-### ⚙️ Settings & Configuration
+### 👤 Multi-Profile & Avatars
 
-| Feature | Description |
-|---------|-------------|
-| Provider Management | Add multiple AI providers (OpenAI-compatible / Anthropic) |
-| Model Management | Add multiple models under each Provider |
-| Startup Behavior | Reopen last Topic or show welcome page |
-| Appearance | Dark / Light theme |
-| Language | 简体中文 / English |
+- Create multiple work profiles with fully isolated topic sets
+- Personalized user avatars (text / image)
+- Quick profile switching in sidebar for work/study/life separation
 
 ---
 
 ## 🏗️ Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
+|-------|------------|
 | Framework | [Tauri 2](https://tauri.app/) + [React 19](https://react.dev/) |
 | Language | TypeScript 5.8 + Rust |
 | Build | Vite 7 |
-| UI Components | Ant Design 5 |
-| State Management | Zustand 5 |
-| AI SDK | Vercel AI SDK (`ai` + `@ai-sdk/openai` + `@ai-sdk/anthropic`) |
-| Graph Visualization | ReactFlow 11 |
-| Markdown | Mermaid 11 + @uiw/react-md-editor |
-| Database | SQLite (via tauri-plugin-sql) |
-| Internationalization | i18next + react-i18next |
+| UI | Ant Design 5 |
+| State | Zustand 5 |
+| AI | Vercel AI SDK (OpenAI / Anthropic) |
+| Graph | ReactFlow 11 |
+| Database | SQLite (tauri-plugin-sql) |
 
 ---
 
@@ -150,53 +135,13 @@ npm run tauri build
 
 ### ⚠️ macOS Installation Note
 
-Since the app is not notarized by Apple, macOS may show "KUI is damaged and can't be opened". Use any of the following methods to resolve:
-
-**Method 1: Remove quarantine attribute in Terminal (Recommended)**
+Since the app is not notarized by Apple, macOS may show "KUI is damaged and can't be opened". Fix:
 
 ```bash
 xattr -cr /Applications/KUI.app
 ```
 
-**Method 2: Right-click to open**
-
-Find KUI.app in Finder → Hold `Control` and click (or right-click) → Select "Open" → Click "Open" in the dialog.
-
-**Method 3: Temporarily allow apps from anywhere**
-
-```bash
-# Enable
-sudo spctl --master-disable
-# Disable after installation (recommended)
-sudo spctl --master-enable
-```
-
----
-
-## 📁 Project Structure
-
-```
-src/
-├── app/            # App initialization & i18n config
-├── assets/         # Static assets (logo, mascot emojis)
-├── components/     # Shared components (Markdown renderer)
-├── db/repos/       # Database layer (topics, messages, agents, providers...)
-├── features/
-│   ├── agent/      # AI Agent runtime & tools
-│   ├── chat/       # Chat interface & topic derivation
-│   ├── graph/      # Graph view (ReactFlow)
-│   ├── settings/   # Settings panel (general/models/agents/appearance/language)
-│   └── topics/     # Topic tree panel & tree building
-├── fs/             # Markdown file I/O
-├── ipc/            # Tauri IPC command wrappers
-├── locales/        # i18n translation files (zh-CN / en-US)
-├── stores/         # Zustand global state
-└── types.ts        # Core type definitions
-
-src-tauri/
-├── migrations/     # SQLite migration scripts
-└── src/            # Rust backend (file ops & full-text search)
-```
+Or right-click KUI.app → select "Open" → confirm in the dialog.
 
 ---
 

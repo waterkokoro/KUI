@@ -10,7 +10,7 @@
   "tree.menu.newChild": "新建子对话",
   "tree.menu.rename": "重命名",
   "tree.menu.delete": "删除",
-  "tree.menu.promote": "转为主 topic",
+  "tree.menu.promote": "转为主对话",
   "tree.menu.openGraph": "在图视图中查看",
   "tree.menu.setIcon": "设置图标",
   "tree.icon.inputPlaceholder": "输入或粘贴任意 emoji...",
