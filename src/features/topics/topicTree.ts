@@ -47,3 +47,18 @@ export function collectDescendantIds(roots: TreeNode[], id: string): string[] {
   if (target) walk(target);
   return ids;
 }
+
+/** 给定扁平 topic 列表和目标 id，返回其所有祖先节点的 id 数组（不包含自身） */
+export function getAncestorIds(flat: Topic[], targetId: string): string[] {
+  const parentMap = new Map<string, string | null>();
+  for (const t of flat) {
+    parentMap.set(t.id, t.parent_id);
+  }
+  const ancestors: string[] = [];
+  let current = parentMap.get(targetId) ?? null;
+  while (current) {
+    ancestors.push(current);
+    current = parentMap.get(current) ?? null;
+  }
+  return ancestors;
+}

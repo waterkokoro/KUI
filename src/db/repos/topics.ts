@@ -2,8 +2,14 @@ import { nanoid } from "nanoid";
 import { getDb } from "../sql";
 import type { Topic, ID } from "../../types";
 
-export async function listTopics(): Promise<Topic[]> {
+export async function listTopics(profileId?: ID): Promise<Topic[]> {
   const db = await getDb();
+  if (profileId) {
+    return db.select<Topic[]>(
+      "SELECT * FROM topics WHERE profile_id = ? ORDER BY parent_id IS NULL DESC, sort_order ASC, created_at ASC",
+      [profileId]
+    );
+  }
   return db.select<Topic[]>(
     "SELECT * FROM topics ORDER BY parent_id IS NULL DESC, sort_order ASC, created_at ASC"
   );
@@ -18,6 +24,7 @@ export async function getTopic(id: ID): Promise<Topic | null> {
 export async function createTopic(input: {
   title: string;
   parent_id?: ID | null;
+  profile_id?: ID | null;
   icon?: string | null;
   agent_id?: ID | null;
   model_ref?: string | null;
@@ -29,6 +36,7 @@ export async function createTopic(input: {
   const row: Topic = {
     id,
     parent_id: input.parent_id ?? null,
+    profile_id: input.profile_id ?? null,
     title: input.title || "Untitled",
     icon: input.icon ?? null,
     agent_id: input.agent_id ?? null,
@@ -39,11 +47,12 @@ export async function createTopic(input: {
     updated_at: now,
   };
   await db.execute(
-    `INSERT INTO topics (id, parent_id, title, icon, agent_id, model_ref, summary, sort_order, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO topics (id, parent_id, profile_id, title, icon, agent_id, model_ref, summary, sort_order, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       row.id,
       row.parent_id,
+      row.profile_id,
       row.title,
       row.icon,
       row.agent_id,
@@ -69,6 +78,7 @@ export async function updateTopic(id: ID, patch: Partial<Topic>): Promise<void> 
     "model_ref",
     "summary",
     "sort_order",
+    "profile_id",
   ] as (keyof Topic)[]) {
     if (k in patch) {
       fields.push(`${String(k)} = ?`);

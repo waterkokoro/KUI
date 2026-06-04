@@ -1,13 +1,42 @@
 import { listAgents, upsertAgent } from "./repos/agents";
 import { listProviders, upsertProvider, listModels, upsertModel } from "./repos/providers";
+import { getOrCreateLocalUser } from "./repos/users";
+import { listProfiles, createProfile } from "./repos/profiles";
+import { getDb } from "./sql";
 
 export async function seedIfEmpty(): Promise<void> {
+  // --- User & Profile seeding ---
+  const user = await getOrCreateLocalUser();
+  const profiles = await listProfiles(user.id);
+  let defaultProfileId: string;
+  if (profiles.length === 0) {
+    const workProfile = await createProfile({
+      user_id: user.id,
+      name: "\u5DE5\u4F5C\u6A21\u5F0F",
+      icon: "\uD83D\uDCBC",
+    });
+    await createProfile({
+      user_id: user.id,
+      name: "\u751F\u6D3B\u6A21\u5F0F",
+      icon: "\uD83C\uDFE0",
+    });
+    defaultProfileId = workProfile.id;
+  } else {
+    defaultProfileId = profiles[0].id;
+  }
+
+  // Backfill existing topics/tags that have no profile_id
+  const db = await getDb();
+  await db.execute("UPDATE topics SET profile_id = ? WHERE profile_id IS NULL", [defaultProfileId]);
+  await db.execute("UPDATE tags SET profile_id = ? WHERE profile_id IS NULL", [defaultProfileId]);
+
+  // --- Agent seeding ---
   const agents = await listAgents();
   if (agents.length === 0) {
     await upsertAgent({
-      name: "Default",
+      name: "助理小葵",
       system_prompt:
-        "You are kui, a helpful assistant for structured learning. Keep answers focused, cite sources where useful, and ask clarifying questions when needed.",
+        "你是助理小葵，一个友善、专注的AI助手。保持回答简洁有条理，必要时引用来源，并在不确定时询问用户以确认意图。",
     });
     await upsertAgent({
       name: "Researcher",
@@ -16,6 +45,7 @@ export async function seedIfEmpty(): Promise<void> {
     });
   }
 
+  // --- Provider seeding ---
   const providers = await listProviders();
   if (providers.length === 0) {
     const presets = [

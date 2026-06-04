@@ -4,6 +4,7 @@ import type { Settings } from "../../types";
 const DEFAULTS: Settings = {
   startup_mode: "last",
   last_topic_id: null,
+  last_profile_id: null,
   theme: "dark",
   language: "zh-CN",
   default_agent_id: null,

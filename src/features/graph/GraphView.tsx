@@ -70,12 +70,13 @@ export function GraphView() {
   const { t } = useTranslation();
   const { modal } = App.useApp();
   const { currentTopicId, setCurrentTopic, setView } = useAppStore();
+  const currentProfileId = useAppStore((s) => s.currentProfileId);
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [direction, setDirection] = useState<"vertical" | "horizontal">("vertical");
 
   const reload = useCallback(async () => {
-    const [topics, links] = await Promise.all([listTopics(), listLinks()]);
+    const [topics, links] = await Promise.all([listTopics(currentProfileId ?? undefined), listLinks(currentProfileId ?? undefined)]);
     const pos = layoutTree(topics, direction);
     const ns: Node[] = topics.map((t) => ({
       id: t.id,
@@ -184,7 +185,7 @@ export function GraphView() {
 
   return (
     <>
-      <div className="kui-chat-header">
+      <div className="kui-chat-header" data-tauri-drag-region="true">
         <span style={{ fontSize: 12, opacity: 0.7 }}>{t("graph.tip")}</span>
         <div style={{ flex: 1 }} />
         <Tooltip title={t("graph.toggleDirection")}>

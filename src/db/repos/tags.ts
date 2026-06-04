@@ -2,8 +2,11 @@ import { nanoid } from "nanoid";
 import { getDb } from "../sql";
 import type { Tag, ID } from "../../types";
 
-export async function listTags(): Promise<Tag[]> {
+export async function listTags(profileId?: ID): Promise<Tag[]> {
   const db = await getDb();
+  if (profileId) {
+    return db.select<Tag[]>("SELECT * FROM tags WHERE profile_id = ? ORDER BY name", [profileId]);
+  }
   return db.select<Tag[]>("SELECT * FROM tags ORDER BY name");
 }
 
@@ -15,7 +18,7 @@ export async function getTopicTags(topicId: ID): Promise<Tag[]> {
   );
 }
 
-export async function setTopicTags(topicId: ID, tagNames: string[]): Promise<void> {
+export async function setTopicTags(topicId: ID, tagNames: string[], profileId?: ID): Promise<void> {
   const db = await getDb();
   const cleanNames = Array.from(
     new Set(tagNames.map((s) => s.trim()).filter(Boolean))
@@ -28,7 +31,7 @@ export async function setTopicTags(topicId: ID, tagNames: string[]): Promise<voi
       tagId = found[0].id;
     } else {
       tagId = nanoid(8);
-      await db.execute("INSERT INTO tags (id, name) VALUES (?, ?)", [tagId, name]);
+      await db.execute("INSERT INTO tags (id, name, profile_id) VALUES (?, ?, ?)", [tagId, name, profileId ?? null]);
     }
     await db.execute(
       "INSERT OR IGNORE INTO topic_tags (topic_id, tag_id) VALUES (?, ?)",

@@ -1,8 +1,29 @@
 export type ID = string;
 
+export interface User {
+  id: ID;
+  name: string;
+  email: string | null;
+  avatar: string | null;
+  auth_provider: string;
+  external_id: string | null;
+  created_at: number;
+}
+
+export interface Profile {
+  id: ID;
+  user_id: ID;
+  name: string;
+  icon: string | null;
+  color: string | null;
+  sort_order: number;
+  created_at: number;
+}
+
 export interface Topic {
   id: ID;
   parent_id: ID | null;
+  profile_id: ID | null;
   title: string;
   icon: string | null;
   agent_id: ID | null;
@@ -65,6 +86,7 @@ export interface Tag {
 export interface Settings {
   startup_mode: "last" | "new";
   last_topic_id: string | null;
+  last_profile_id: string | null;
   theme: "dark" | "light";
   language: "zh-CN" | "en-US";
   default_agent_id: string | null;

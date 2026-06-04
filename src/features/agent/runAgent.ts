@@ -1,6 +1,6 @@
 import { streamText, generateText } from "ai";
 import type { CoreMessage } from "ai";
-import { resolveModel } from "./getModel";
+import { resolveModel, getProviderKind, getProviderConfig } from "./getModel";
 import { buildTools } from "./tools";
 
 export interface RunAgentOpts {
@@ -9,16 +9,38 @@ export interface RunAgentOpts {
   topicId: string;
   messages: { role: "user" | "assistant" | "system"; content: string }[];
   onToken: (delta: string) => void;
+  onReasoning?: (delta: string) => void;
+  thinking?: boolean;
   signal?: AbortSignal;
 }
 
-export async function runAgent(opts: RunAgentOpts): Promise<string> {
+export interface RunAgentResult {
+  text: string;
+  reasoning: string;
+}
+
+export async function runAgent(opts: RunAgentOpts): Promise<RunAgentResult> {
+  const providerKind = await getProviderKind(opts.modelRef);
+
+  // For OpenAI-compatible providers with thinking enabled,
+  // use custom streaming to extract reasoning_content
+  if (opts.thinking && providerKind === "openai") {
+    return runAgentWithOpenAIReasoning(opts);
+  }
+
+  // For Anthropic or non-thinking mode, use Vercel AI SDK
   const model = await resolveModel(opts.modelRef);
   const tools = await buildTools(opts.topicId);
   const messages: CoreMessage[] = opts.messages.map((m) => ({
     role: m.role,
     content: m.content,
   })) as CoreMessage[];
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let providerOptions: any = undefined;
+  if (opts.thinking && providerKind === "anthropic") {
+    providerOptions = { anthropic: { thinking: { type: "enabled", budgetTokens: 10000 } } };
+  }
 
   const result = streamText({
     model,
@@ -27,13 +49,105 @@ export async function runAgent(opts: RunAgentOpts): Promise<string> {
     tools,
     maxSteps: 6,
     abortSignal: opts.signal,
+    providerOptions,
   });
+
   let full = "";
-  for await (const delta of result.textStream) {
-    full += delta;
-    opts.onToken(delta);
+  let reasoning = "";
+
+  for await (const part of result.fullStream) {
+    if (part.type === "reasoning" && opts.onReasoning) {
+      reasoning += (part as { type: "reasoning"; textDelta: string }).textDelta;
+      opts.onReasoning((part as { type: "reasoning"; textDelta: string }).textDelta);
+    } else if (part.type === "text-delta") {
+      full += (part as { type: "text-delta"; textDelta: string }).textDelta;
+      opts.onToken((part as { type: "text-delta"; textDelta: string }).textDelta);
+    }
   }
-  return full;
+
+  return { text: full, reasoning };
+}
+
+/**
+ * Custom streaming for OpenAI-compatible APIs (DeepSeek, Qwen, etc.)
+ * that return reasoning_content in streaming responses.
+ * The @ai-sdk/openai package does NOT extract this field.
+ */
+async function runAgentWithOpenAIReasoning(opts: RunAgentOpts): Promise<RunAgentResult> {
+  const config = await getProviderConfig(opts.modelRef);
+
+  const apiMessages: Array<{ role: string; content: string }> = [];
+  if (opts.systemPrompt) {
+    apiMessages.push({ role: "system", content: opts.systemPrompt });
+  }
+  for (const m of opts.messages) {
+    apiMessages.push({ role: m.role, content: m.content });
+  }
+
+  const body = {
+    model: config.modelId,
+    messages: apiMessages,
+    stream: true,
+  };
+
+  const res = await fetch(`${config.baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${config.apiKey}`,
+    },
+    body: JSON.stringify(body),
+    signal: opts.signal,
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`API error ${res.status}: ${errText}`);
+  }
+
+  let full = "";
+  let reasoning = "";
+
+  const reader = res.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || !trimmed.startsWith("data:")) continue;
+      const data = trimmed.slice(5).trim();
+      if (data === "[DONE]") break;
+
+      try {
+        const parsed = JSON.parse(data);
+        const delta = parsed.choices?.[0]?.delta;
+        if (!delta) continue;
+
+        // Extract reasoning_content (DeepSeek, Qwen, etc.)
+        if (delta.reasoning_content && opts.onReasoning) {
+          reasoning += delta.reasoning_content;
+          opts.onReasoning(delta.reasoning_content);
+        }
+        // Extract regular content
+        if (delta.content) {
+          full += delta.content;
+          opts.onToken(delta.content);
+        }
+      } catch {
+        // Skip malformed JSON
+      }
+    }
+  }
+
+  return { text: full, reasoning };
 }
 
 export async function summarizeConversation(opts: {

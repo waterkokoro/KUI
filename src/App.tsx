@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { App as AntdApp, ConfigProvider, theme as antdTheme, Spin } from "antd";
+import { Group, Panel, Separator } from "react-resizable-panels";
 import zhCN from "antd/locale/zh_CN";
 import enUS from "antd/locale/en_US";
 import { useAppStore } from "./stores/appStore";
@@ -12,7 +13,7 @@ import { bootstrap } from "./app/init";
 
 
 export default function App() {
-  const { ready, settings, view, currentTopicId } = useAppStore();
+  const { ready, settings, view, currentTopicId, currentProfileId } = useAppStore();
 
   useEffect(() => {
     void bootstrap();
@@ -28,6 +29,12 @@ export default function App() {
     if (!ready) return;
     void setSetting("last_topic_id", currentTopicId);
   }, [currentTopicId, ready]);
+
+  // persist last_profile_id when changes
+  useEffect(() => {
+    if (!ready) return;
+    void setSetting("last_profile_id", currentProfileId);
+  }, [currentProfileId, ready]);
 
   if (!ready) {
     return (
@@ -48,14 +55,17 @@ export default function App() {
     >
       <AntdApp style={{ height: "100%" }}>
         <div className="kui-shell" data-theme={settings.theme}>
-          <div className="kui-shell-body">
-            <TopicTreePanel />
-            <div className="kui-main">
+          <Group orientation="horizontal" id="kui-layout" className="kui-shell-body">
+            <Panel id="sidebar" defaultSize="20%" minSize="12%" maxSize="40%" className="kui-sidebar-panel">
+              <TopicTreePanel />
+            </Panel>
+            <Separator className="kui-resize-handle" />
+            <Panel id="main" minSize="40%" className="kui-main">
               {view === "chat" && <ChatView />}
               {view === "graph" && <GraphView />}
               {view === "settings" && <SettingsView />}
-            </div>
-          </div>
+            </Panel>
+          </Group>
         </div>
       </AntdApp>
     </ConfigProvider>

@@ -104,6 +104,7 @@ export function DeriveSubTopicModal({
       const child = await createTopic({
         title: v.title || t("topic.newTitle"),
         parent_id: parentTopic.id,
+        profile_id: parentTopic.profile_id,
         agent_id: v.agentId ?? null,
         model_ref: v.modelRef ?? null,
         summary: v.compressed ?? null,
@@ -143,7 +144,12 @@ export function DeriveSubTopicModal({
       confirmLoading={creating}
     >
       <Spin spinning={compressing} tip={t("derive.compressing")}>
-        <Form layout="vertical" form={form}>
+        <Form layout="vertical" form={form} onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.nativeEvent.isComposing || e.keyCode === 229)) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }}>
           <Form.Item label={t("derive.titleLabel")} name="title" rules={[{ required: true }]}>
             <Input />
           </Form.Item>

@@ -6,14 +6,15 @@ import { ProvidersTab } from "./tabs/ProvidersTab";
 import { AgentsTab } from "./tabs/AgentsTab";
 import { AppearanceTab } from "./tabs/AppearanceTab";
 import { LanguageTab } from "./tabs/LanguageTab";
+import { ProfilesTab } from "./tabs/ProfilesTab";
 import { useAppStore } from "../../stores/appStore";
 
 export function SettingsView() {
   const { t } = useTranslation();
-  const { appDataDir, setView } = useAppStore();
+  const { appDataDir, setView, settingsTab, setSettingsTab } = useAppStore();
   return (
     <div className="kui-settings">
-      <div style={{ marginBottom: 12 }}>
+      <div className="kui-chat-header" data-tauri-drag-region="true">
         <Button
           type="text"
           icon={<ArrowLeftOutlined />}
@@ -23,9 +24,11 @@ export function SettingsView() {
         </Button>
       </div>
       <Tabs
-        defaultActiveKey="general"
+        activeKey={settingsTab}
+        onChange={(key) => setSettingsTab(key)}
         items={[
           { key: "general", label: t("settings.tab.general"), children: <GeneralTab /> },
+          { key: "profiles", label: t("settings.tab.profiles"), children: <ProfilesTab /> },
           { key: "providers", label: t("settings.tab.providers"), children: <ProvidersTab /> },
           { key: "agents", label: t("settings.tab.agents"), children: <AgentsTab /> },
           { key: "appearance", label: t("settings.tab.appearance"), children: <AppearanceTab /> },
@@ -39,7 +42,7 @@ export function SettingsView() {
                   <strong>{t("settings.about.appData")}: </strong>
                   <code>{appDataDir}</code>
                 </div>
-                <div style={{ marginTop: 6, opacity: 0.7 }}>kui v0.1.0</div>
+                <div style={{ marginTop: 6, opacity: 0.7 }}>kui v0.1.3</div>
               </div>
             ),
           },

@@ -2,8 +2,17 @@ import { nanoid } from "nanoid";
 import { getDb } from "../sql";
 import type { TopicLink, ID } from "../../types";
 
-export async function listLinks(): Promise<TopicLink[]> {
+export async function listLinks(profileId?: ID): Promise<TopicLink[]> {
   const db = await getDb();
+  if (profileId) {
+    return db.select<TopicLink[]>(
+      `SELECT tl.* FROM topic_links tl
+       INNER JOIN topics t ON tl.from_id = t.id
+       WHERE t.profile_id = ?
+       ORDER BY tl.created_at ASC`,
+      [profileId]
+    );
+  }
   return db.select<TopicLink[]>("SELECT * FROM topic_links ORDER BY created_at ASC");
 }
 

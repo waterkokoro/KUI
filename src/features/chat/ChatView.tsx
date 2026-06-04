@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Button, Dropdown, Input, Space, Tooltip, message as antdMessage } from "antd";
-import { CopyOutlined, EditOutlined, FolderOpenOutlined, PlusOutlined, RobotOutlined, StopOutlined, ThunderboltOutlined } from "@ant-design/icons";
+import { Button, Dropdown, Input, Modal, Popover, Space, Tooltip, message as antdMessage } from "antd";
+import { AimOutlined, CopyOutlined, EditOutlined, FolderOpenOutlined, InfoCircleOutlined, PlusOutlined, RobotOutlined, StopOutlined, ThunderboltOutlined } from "@ant-design/icons";
+import dayjs from "dayjs";
 import { useTranslation } from "react-i18next";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { Markdown } from "../../components/Markdown";
+import { TextAvatar, parseTextAvatar } from "../../components/TextAvatar";
 import { useAppStore } from "../../stores/appStore";
 import { getTopic, updateTopic } from "../../db/repos/topics";
 import { listMessages, insertMessage } from "../../db/repos/messages";
@@ -13,13 +15,14 @@ import { topicMdAbsPath, appendMessageMd } from "../../fs/mdRepo";
 import type { Agent, MessageRow, ModelRow, Provider, Topic } from "../../types";
 import { runAgent } from "../agent/runAgent";
 import { DeriveSubTopicModal } from "./DeriveSubTopicModal";
-import kuiDef from "../../assets/kui/kui_def.png";
-import kui01 from "../../assets/kui/kui01_emoji.png";
-import kui02 from "../../assets/kui/kui02_emoji.png";
-import kui03 from "../../assets/kui/kui03_emoji.png";
-import kui04 from "../../assets/kui/kui04_emoji.png";
+import { EMOJI_PRESETS, DEFAULT_TOPIC_ICON } from "../../constants/emojiPresets";
+import { Twemoji } from "../../components/Twemoji";
+import kuiDef from "../../assets/logo_icon.png";
+import kuiHappy from "../../assets/kui/positive_emotions/kui_emoji_happy.png";
+import kuiYeah from "../../assets/kui/positive_emotions/kui_emoji_yeah.png";
+import kuiDefault from "../../assets/kui/kui_def.png";
 
-const MASCOT_IMGS = [kuiDef, kui01, kui02, kui03, kui04];
+const MASCOT_IMGS = [kuiDefault, kuiHappy, kuiYeah];
 
 /** 根据小时数返回问候语 i18n key */
 function getGreetingKey(): string {
@@ -60,7 +63,7 @@ function useRandomMascot() {
 
 export function ChatView() {
   const { t } = useTranslation();
-  const { currentTopicId, settings, reloadTree } = useAppStore();
+  const { currentTopicId, settings, reloadTree, currentUser, locateInTree } = useAppStore();
   const [topic, setTopic] = useState<Topic | null>(null);
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -69,6 +72,8 @@ export function ChatView() {
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [streamBuf, setStreamBuf] = useState("");
+  const [reasoningBuf, setReasoningBuf] = useState("");
+  const [thinkingEnabled, setThinkingEnabled] = useState(false);
   const [mdPath, setMdPath] = useState("");
   const [deriveOpen, setDeriveOpen] = useState(false);
   const [deriveSeed, setDeriveSeed] = useState<string>("");
@@ -143,6 +148,7 @@ export function ChatView() {
     setInput("");
     setStreaming(true);
     setStreamBuf("");
+    setReasoningBuf("");
     stopRequestedRef.current = false;
     const controller = new AbortController();
     abortRef.current = controller;
@@ -152,23 +158,33 @@ export function ChatView() {
         role: m.role,
         content: m.content,
       }));
-      const text = await runAgent({
+      let reasoningAll = "";
+      const { text } = await runAgent({
         modelRef: effectiveModelRef,
         systemPrompt: agent?.system_prompt ?? "",
         topicId: topic.id,
         messages: history,
         signal: controller.signal,
+        thinking: thinkingEnabled,
         onToken: (delta) => {
           buf += delta;
           setStreamBuf(buf);
         },
+        onReasoning: thinkingEnabled ? (delta) => {
+          reasoningAll += delta;
+          setReasoningBuf(reasoningAll);
+        } : undefined,
       });
+      // Build final content with optional reasoning block
+      const finalContent = reasoningAll
+        ? `<details class="kui-reasoning-block"><summary>${t("chat.reasoningTitle")}</summary>\n\n${reasoningAll}\n\n</details>\n\n${text}`
+        : text;
       const aiMsg = await insertMessage({
         topic_id: topic.id,
         role: "assistant",
-        content: text,
+        content: finalContent,
       });
-      await appendMessageMd(topic.id, "assistant", text);
+      await appendMessageMd(topic.id, "assistant", finalContent);
       setMessages((prev) => [...prev, aiMsg]);
       // Auto-title for first reply
       if (!topic.title || topic.title === t("topic.newTitle") || topic.title === "Untitled") {
@@ -197,6 +213,7 @@ export function ChatView() {
     } finally {
       setStreaming(false);
       setStreamBuf("");
+      setReasoningBuf("");
       abortRef.current = null;
       stopRequestedRef.current = false;
     }
@@ -220,6 +237,8 @@ export function ChatView() {
 
   const [editingTitle, setEditingTitle] = useState(false);
   const [editTitleValue, setEditTitleValue] = useState("");
+  const [iconPicking, setIconPicking] = useState(false);
+  const [iconValue, setIconValue] = useState("");
 
   const startEditTitle = () => {
     setEditTitleValue(topic?.title ?? "");
@@ -235,6 +254,20 @@ export function ChatView() {
     reloadTree();
   };
 
+  const startEditIcon = () => {
+    setIconValue(topic?.icon || "");
+    setIconPicking(true);
+  };
+
+  const saveIcon = async () => {
+    if (!topic) return;
+    const icon = iconValue.trim() || null;
+    await updateTopic(topic.id, { icon });
+    setTopic({ ...topic, icon });
+    setIconPicking(false);
+    reloadTree();
+  };
+
   const deriveFrom = (seedContent: string) => {
     setDeriveSeed(seedContent);
     setDeriveOpen(true);
@@ -246,6 +279,7 @@ export function ChatView() {
   if (!currentTopicId || !topic) {
     return (
       <div className="kui-empty">
+        <div className="kui-drag-top" data-tauri-drag-region="true" />
         <div className="kui-empty-content">
           <img src={mascotImg} alt="KUI" className="kui-empty-icon" />
           <div className="kui-empty-greeting">{t(getGreetingKey())}</div>
@@ -258,8 +292,16 @@ export function ChatView() {
 
   return (
     <>
-      <div className="kui-chat-header">
+      <div className="kui-chat-header" data-tauri-drag-region="true">
         <div className="kui-chat-title-group">
+          <Tooltip title={t("tree.menu.setIcon")}>
+            <span
+              className="kui-chat-title-icon"
+              onClick={startEditIcon}
+            >
+              <Twemoji emoji={topic.icon || DEFAULT_TOPIC_ICON} size={18} />
+            </span>
+          </Tooltip>
           {editingTitle ? (
             <Input
               size="small"
@@ -275,6 +317,9 @@ export function ChatView() {
               <span className="kui-chat-title">{topic.title}</span>
               <Tooltip title={t("tree.menu.rename")}>
                 <Button type="text" size="small" icon={<EditOutlined />} onClick={startEditTitle} />
+              </Tooltip>
+              <Tooltip title={t("topic.locateInTree")}>
+                <Button type="text" size="small" icon={<AimOutlined />} onClick={locateInTree} />
               </Tooltip>
             </>
           )}
@@ -293,6 +338,39 @@ export function ChatView() {
         <Button size="small" icon={<PlusOutlined />} onClick={() => deriveFrom("")}>
           {t("topic.deriveSub")}
         </Button>
+        <Popover
+          trigger="click"
+          placement="bottomRight"
+          title={t("topic.info")}
+          content={
+            <div style={{ minWidth: 200, fontSize: 13 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                <span style={{ color: "var(--text-secondary, #888)" }}>{t("topic.info.createdAt")}</span>
+                <span>{dayjs(topic.created_at).format("YYYY-MM-DD HH:mm")}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                <span style={{ color: "var(--text-secondary, #888)" }}>{t("topic.info.updatedAt")}</span>
+                <span>{dayjs(topic.updated_at).format("YYYY-MM-DD HH:mm")}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                <span style={{ color: "var(--text-secondary, #888)" }}>{t("topic.info.lastMessage")}</span>
+                <span>
+                  {messages.length > 0
+                    ? dayjs(messages[messages.length - 1].created_at).format("YYYY-MM-DD HH:mm")
+                    : t("topic.info.noMessages")}
+                </span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "var(--text-secondary, #888)" }}>{t("topic.info.messageCount")}</span>
+                <span>{messages.length}</span>
+              </div>
+            </div>
+          }
+        >
+          <Tooltip title={t("topic.info")}>
+            <Button size="small" type="text" icon={<InfoCircleOutlined />} />
+          </Tooltip>
+        </Popover>
       </div>
 
       <div className="kui-chat-messages">
@@ -304,31 +382,93 @@ export function ChatView() {
             <div className="kui-empty-hint">{t("empty.startHint")}</div>
           </div>
         )}
-        {messages.map((m) => (
-          <div key={m.id} className={`kui-chat-bubble ${m.role}`}>
-            <div className="kui-chat-meta">
-              <span>{m.role}</span>
-              <Space size={4}>
-                <Tooltip title={t("chat.copy")}>
-                  <Button type="text" size="small" icon={<CopyOutlined />} onClick={() => {
-                    void navigator.clipboard.writeText(m.content);
-                    antdMessage.success(t("common.copied"));
-                  }} />
-                </Tooltip>
-                <Tooltip title={t("chat.deriveFromHere")}>
-                  <Button type="text" size="small" icon={<PlusOutlined />} onClick={() => deriveFrom(m.content)} />
-                </Tooltip>
-              </Space>
+        {messages.map((m) => {
+          const isUser = m.role === "user";
+          const currentAgent = agents.find((a) => a.id === effectiveAgentId);
+          const agentAvatar = currentAgent?.avatar;
+          const agentName = currentAgent?.name ?? "Agent";
+
+          // Render avatar element
+          const renderAvatar = () => {
+            if (isUser) {
+              // User avatar
+              const ua = currentUser?.avatar;
+              if (ua && ua.startsWith("data:")) {
+                return <img src={ua} alt="user" className="kui-chat-avatar" />;
+              }
+              if (ua && ua.startsWith("text:")) {
+                const parsed = parseTextAvatar(ua);
+                return <TextAvatar text={parsed.text} size={36} borderRadius={10} color={parsed.color} layout={parsed.layout} />;
+              }
+              // Default: generate text avatar from name
+              return <TextAvatar text={currentUser?.name?.slice(0, 6) || "U"} size={36} borderRadius={10} />;
+            } else {
+              // Agent avatar
+              if (agentAvatar && agentAvatar.startsWith("text:")) {
+                const parsed = parseTextAvatar(agentAvatar);
+                return <TextAvatar text={parsed.text} size={36} borderRadius={10} color={parsed.color} layout={parsed.layout} />;
+              }
+              if (agentAvatar && agentAvatar.startsWith("data:")) {
+                return <img src={agentAvatar} alt="agent" className="kui-chat-avatar" />;
+              }
+              return <img src={kuiDef} alt="agent" className="kui-chat-avatar" />;
+            }
+          };
+
+          return (
+            <div key={m.id} className={`kui-chat-row ${m.role}`}>
+              {renderAvatar()}
+              <div className={`kui-chat-bubble ${m.role}`}>
+                <div className="kui-chat-meta">
+                  <span>{isUser ? t("chat.you") : agentName}</span>
+                  <Space size={4}>
+                    <Tooltip title={t("chat.copy")}>
+                      <Button type="text" size="small" icon={<CopyOutlined />} onClick={() => {
+                        void navigator.clipboard.writeText(m.content);
+                        antdMessage.success(t("common.copied"));
+                      }} />
+                    </Tooltip>
+                    <Tooltip title={t("chat.deriveFromHere")}>
+                      <Button type="text" size="small" icon={<PlusOutlined />} onClick={() => deriveFrom(m.content)} />
+                    </Tooltip>
+                  </Space>
+                </div>
+                <Markdown content={m.content} />
+              </div>
             </div>
-            <Markdown content={m.content} />
-          </div>
-        ))}
-        {streaming && (
-          <div className="kui-chat-bubble assistant">
-            <div className="kui-chat-meta">{t("chat.thinking")}</div>
-            <Markdown content={streamBuf} />
-          </div>
-        )}
+          );
+        })}
+        {streaming && (() => {
+          const currentAgent = agents.find((a) => a.id === effectiveAgentId);
+          const agentAvatar = currentAgent?.avatar;
+          const renderStreamAvatar = () => {
+            if (agentAvatar && agentAvatar.startsWith("text:")) {
+              const parsed = parseTextAvatar(agentAvatar);
+              return <TextAvatar text={parsed.text} size={36} borderRadius={10} color={parsed.color} layout={parsed.layout} />;
+            }
+            if (agentAvatar && agentAvatar.startsWith("data:")) {
+              return <img src={agentAvatar} alt="agent" className="kui-chat-avatar" />;
+            }
+            return <img src={kuiDef} alt="agent" className="kui-chat-avatar" />;
+          };
+          return (
+            <div className="kui-chat-row assistant">
+              {renderStreamAvatar()}
+              <div className="kui-chat-bubble assistant">
+                <div className="kui-chat-meta">{t("chat.thinking")}</div>
+                {thinkingEnabled && reasoningBuf && (
+                  <details className="kui-reasoning-block" open={!streamBuf}>
+                    <summary>{t("chat.reasoningTitle")}</summary>
+                    <div className="kui-reasoning-content">
+                      <Markdown content={reasoningBuf} />
+                    </div>
+                  </details>
+                )}
+                {streamBuf && <Markdown content={streamBuf} />}
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       <div className="kui-composer">
@@ -358,6 +498,18 @@ export function ChatView() {
                   <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.2" fill="none"/></svg>
                 </button>
               </Dropdown>
+              <button
+                className={`kui-selector-pill${thinkingEnabled ? " kui-selector-pill--active" : ""}`}
+                onClick={() => setThinkingEnabled((v) => !v)}
+                title={t("chat.thinkingMode")}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2a7 7 0 0 1 7 7c0 2.5-1.3 4.7-3.2 6H8.2C6.3 13.7 5 11.5 5 9a7 7 0 0 1 7-7z" />
+                  <path d="M9 17h6" />
+                  <path d="M10 21h4" />
+                </svg>
+                <span>{t("chat.thinkingMode")}</span>
+              </button>
               <Dropdown
                 trigger={["click"]}
                 menu={{
@@ -399,6 +551,55 @@ export function ChatView() {
           }}
         />
       )}
+
+      {/* 图标选择 Modal */}
+      <Modal
+        title={t("tree.menu.setIcon")}
+        open={iconPicking}
+        onCancel={() => setIconPicking(false)}
+        onOk={() => void saveIcon()}
+        destroyOnClose
+        okText={t("common.save")}
+        cancelText={t("common.cancel")}
+        width={400}
+      >
+        <div style={{ marginBottom: 12 }}>
+          <Input
+            value={iconValue}
+            placeholder={t("tree.icon.inputPlaceholder")}
+            autoFocus
+            onChange={(e) => setIconValue(e.target.value)}
+            suffix={
+              iconValue ? (
+                <span
+                  style={{ cursor: "pointer", opacity: 0.5 }}
+                  onClick={() => setIconValue("")}
+                >
+                  {t("tree.icon.clear")}
+                </span>
+              ) : null
+            }
+          />
+        </div>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(8, 1fr)",
+            gap: 4,
+          }}
+        >
+          {EMOJI_PRESETS.map((emoji) => (
+            <Button
+              key={emoji}
+              type={iconValue === emoji ? "primary" : "text"}
+              style={{ width: 36, height: 36, padding: 0, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+              onClick={() => setIconValue(emoji)}
+            >
+              <Twemoji emoji={emoji} size={20} />
+            </Button>
+          ))}
+        </div>
+      </Modal>
     </>
   );
 }

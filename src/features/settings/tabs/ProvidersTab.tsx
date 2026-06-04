@@ -166,7 +166,12 @@ export function ProvidersTab() {
         okText={t("common.save")}
         cancelText={t("common.cancel")}
       >
-        <Form form={form} layout="vertical">
+        <Form form={form} layout="vertical" onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.nativeEvent.isComposing || e.keyCode === 229)) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }}>
           <Form.Item label="Name" name="name" rules={[{ required: true }]}>
             <Input />
           </Form.Item>
@@ -201,7 +206,12 @@ export function ProvidersTab() {
         okText={t("common.save")}
         cancelText={t("common.cancel")}
       >
-        <Form form={modelForm} layout="vertical">
+        <Form form={modelForm} layout="vertical" onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.nativeEvent.isComposing || e.keyCode === 229)) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }}>
           <Form.Item name="provider_id" hidden>
             <Input />
           </Form.Item>

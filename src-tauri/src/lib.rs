@@ -134,6 +134,12 @@ fn migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/002_add_topic_icon.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 3,
+            description: "add user profiles",
+            sql: include_str!("../migrations/003_add_user_profiles.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
 
