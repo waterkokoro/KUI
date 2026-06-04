@@ -1,6 +1,6 @@
 [package]
 name = "kui"
-version = "0.1.4"
+version = "0.1.5"
 description = "kui - multi-level topic AI chat desktop client"
 authors = ["arugo"]
 edition = "2021"
