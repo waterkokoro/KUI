@@ -4,8 +4,14 @@ import { listTopics, getTopic, updateTopic } from "../../db/repos/topics";
 import { setTopicTags } from "../../db/repos/tags";
 import { grepTopics } from "../../ipc";
 import { topicsRoot } from "../../fs/mdRepo";
+import { webSearch } from "../search";
+import type { ToolCallEvent } from "./runAgent";
 
-export async function buildTools(currentTopicId: string | null) {
+export async function buildTools(
+  currentTopicId: string | null,
+  webSearchEnabled = true,
+  onToolCall?: (event: ToolCallEvent) => void,
+) {
   return {
     search_notes: tool({
       description:
@@ -80,5 +86,43 @@ export async function buildTools(currentTopicId: string | null) {
         return out;
       },
     }),
+
+    ...(webSearchEnabled
+      ? {
+          web_search: tool({
+            description:
+              "Search the web for real-time information. Use when you need the latest news, technical docs, current events, or any external knowledge not in your training data.",
+            parameters: z.object({
+              query: z.string().describe("search keywords"),
+              maxResults: z.number().optional().describe("max results, default 10"),
+            }),
+            execute: async ({ query, maxResults }) => {
+              try {
+                onToolCall?.({ toolName: "web_search", status: "calling", args: { query, maxResults } });
+                const payload = await webSearch(query, { maxResults: maxResults ?? 10 });
+                if (payload.results.length === 0) {
+                  const result = { query, message: "No results found.", results: [], provider: payload.provider };
+                  onToolCall?.({ toolName: "web_search", status: "done", args: { query }, result });
+                  return result;
+                }
+                const formatted = payload.results
+                  .slice(0, 10)
+                  .map((r, i) => `${i + 1}. **${r.title}**\n${r.url}\n${r.content}`)
+                  .join("\n\n");
+                const result = {
+                  query,
+                  provider: payload.provider,
+                  results: payload.results,
+                  formatted,
+                };
+                onToolCall?.({ toolName: "web_search", status: "done", args: { query }, result });
+                return result;
+              } catch (e) {
+                return { error: `Search failed: ${(e as Error).message}` };
+              }
+            },
+          }),
+        }
+      : {}),
   };
 }

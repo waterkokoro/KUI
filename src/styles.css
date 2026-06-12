@@ -641,14 +641,25 @@ html, body, #root {
   gap: 6px;
 }
 
+.kui-reasoning-block > summary::-webkit-details-marker {
+  display: none;
+}
+
 .kui-reasoning-block > summary::before {
-  content: "\25B6";
-  font-size: 10px;
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
   transition: transform 0.2s;
+  margin-right: 6px;
+  flex-shrink: 0;
 }
 
 .kui-reasoning-block[open] > summary::before {
-  transform: rotate(90deg);
+  transform: rotate(45deg);
 }
 
 .kui-reasoning-block > summary:hover {
@@ -663,6 +674,78 @@ html, body, #root {
   opacity: 0.85;
   font-size: 13px;
   line-height: 1.6;
+}
+
+/* ---------- search indicator ---------- */
+.kui-search-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ant-color-primary, #1677ff);
+  animation: kui-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes kui-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.kui-search-refs {
+  margin: 8px 0 4px;
+  border: 1px solid var(--ant-color-border-secondary, var(--kui-fallback-border));
+  border-radius: 8px;
+  overflow: hidden;
+  font-size: 13px;
+}
+
+.kui-search-refs > summary {
+  padding: 6px 12px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--ant-color-text-secondary, rgba(255, 255, 255, 0.65));
+  list-style: none;
+}
+
+.kui-search-refs > summary::-webkit-details-marker {
+  display: none;
+}
+
+.kui-search-refs > summary::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.2s;
+  margin-right: 6px;
+}
+
+.kui-search-refs[open] > summary::before {
+  transform: rotate(45deg);
+}
+
+.kui-search-refs > summary:hover {
+  background: var(--ant-color-fill-tertiary, rgba(128, 128, 128, 0.12));
+}
+
+.kui-search-refs ol {
+  margin: 0;
+  padding: 8px 12px 8px 28px;
+  border-top: 1px solid var(--ant-color-border-secondary, var(--kui-fallback-border));
+  line-height: 1.7;
+}
+
+.kui-search-refs ol li a {
+  color: var(--ant-color-primary, #1677ff);
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.kui-search-refs ol li a:hover {
+  text-decoration: underline;
 }
 
 /* ---------- graph ---------- */

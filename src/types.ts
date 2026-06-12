@@ -83,6 +83,8 @@ export interface Tag {
   name: string;
 }
 
+export type SearchProviderType = "auto" | "tavily" | "serper" | "brave" | "anysearch_free";
+
 export interface Settings {
   startup_mode: "last" | "new";
   last_topic_id: string | null;
@@ -91,4 +93,6 @@ export interface Settings {
   language: "zh-CN" | "en-US";
   default_agent_id: string | null;
   default_model_ref: string | null;
+  search_provider: SearchProviderType;
+  search_api_keys: Record<string, string>;
 }

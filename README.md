@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
-  <a href="https://github.com/waterkokoro/KUI/releases"><img src="https://img.shields.io/badge/version-0.1.6-blue" alt="Version"></a>
+  <a href="https://github.com/waterkokoro/KUI/releases"><img src="https://img.shields.io/badge/version-0.1.7-blue" alt="Version"></a>
   <a href="https://github.com/waterkokoro/KUI/stargazers"><img src="https://img.shields.io/github/stars/waterkokoro/KUI?style=social" alt="Stars"></a>
   <a href="https://github.com/waterkokoro/KUI/network/members"><img src="https://img.shields.io/github/forks/waterkokoro/KUI?style=social" alt="Forks"></a>
   <a href="https://github.com/waterkokoro/KUI/issues"><img src="https://img.shields.io/github/issues/waterkokoro/KUI" alt="Issues"></a>
@@ -45,6 +45,19 @@
 
 ---
 
+## 📋 更新日志
+
+### v0.1.7
+
+- 🌐 **联网搜索**：对话中可开启联网搜索，AI 自动检索网页并引用来源
+- 🔍 **多搜索服务商**：支持 Tavily、Serper（Google）、Brave Search、AnySearch Free，可配置优先级与自动降级
+- 🛠️ **Tool Calling 增强**：OpenAI 兼容接口全面支持 function calling，深度思考模式也可调用工具
+- 📎 **参考来源展示**：搜索结果以可折叠列表呈现，点击即可跳转原始链接
+- 🎨 **UI 优化**：深度思考折叠箭头改为 chevron 风格，搜索中状态增加脉冲动画指示器
+- 🐛 **修复**：优化 OpenAI streaming 在 tool call 场景下的多步执行稳定性
+
+---
+
 ## ✨ 核心特性
 
 ### 🌳 树形目录管理
@@ -65,6 +78,13 @@
 - 一键定位当前话题在目录树中的位置
 - 自动展开祖先节点，平滑滚动到目标位置
 - 在深层嵌套树中快速找到当前会话的位置
+
+### 🌐 联网搜索
+
+- 对话中一键开启联网搜索，AI 自动检索实时网页信息
+- 支持 4 种搜索服务商：Tavily（AI 搜索）、Serper（Google）、Brave Search、AnySearch Free
+- 自动模式下按优先级尝试已配置服务，全部失败时自动降级到免费兜底方案
+- 搜索结果以可折叠参考来源列表展示，方便溯源验证
 
 ### 🤖 自定义助手
 

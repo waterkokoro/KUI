@@ -9,6 +9,8 @@ const DEFAULTS: Settings = {
   language: "zh-CN",
   default_agent_id: null,
   default_model_ref: null,
+  search_provider: "auto",
+  search_api_keys: {},
 };
 
 export async function getAllSettings(): Promise<Settings> {

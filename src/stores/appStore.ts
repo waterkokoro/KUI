@@ -41,6 +41,8 @@ export const useAppStore = create<AppState>((set) => ({
     language: "zh-CN",
     default_agent_id: null,
     default_model_ref: null,
+    search_provider: "auto",
+    search_api_keys: {},
   },
   currentTopicId: null,
   currentUserId: null,

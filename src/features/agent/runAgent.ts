@@ -2,6 +2,14 @@ import { streamText, generateText } from "ai";
 import type { CoreMessage } from "ai";
 import { resolveModel, getProviderKind, getProviderConfig } from "./getModel";
 import { buildTools } from "./tools";
+import { zodToJsonSchema } from "zod-to-json-schema";
+
+export interface ToolCallEvent {
+  toolName: string;
+  status: "calling" | "done";
+  args: Record<string, unknown>;
+  result?: unknown;
+}
 
 export interface RunAgentOpts {
   modelRef: string;
@@ -10,7 +18,9 @@ export interface RunAgentOpts {
   messages: { role: "user" | "assistant" | "system"; content: string }[];
   onToken: (delta: string) => void;
   onReasoning?: (delta: string) => void;
+  onToolCall?: (event: ToolCallEvent) => void;
   thinking?: boolean;
+  webSearch?: boolean;
   signal?: AbortSignal;
 }
 
@@ -30,7 +40,7 @@ export async function runAgent(opts: RunAgentOpts): Promise<RunAgentResult> {
 
   // For Anthropic or non-thinking mode, use Vercel AI SDK
   const model = await resolveModel(opts.modelRef);
-  const tools = await buildTools(opts.topicId);
+  const tools = await buildTools(opts.topicId, opts.webSearch ?? true, opts.onToolCall);
   const messages: CoreMessage[] = opts.messages.map((m) => ({
     role: m.role,
     content: m.content,
@@ -68,15 +78,86 @@ export async function runAgent(opts: RunAgentOpts): Promise<RunAgentResult> {
   return { text: full, reasoning };
 }
 
+// ─────────────────────────────────────────────────────────────────
+// OpenAI-compatible streaming with reasoning_content + tool calling
+// ─────────────────────────────────────────────────────────────────
+
+interface OpenAIToolCall {
+  id: string;
+  type: string;
+  function: { name: string; arguments: string };
+}
+
+interface StreamToolCallDelta {
+  index: number;
+  id?: string;
+  type?: string;
+  function?: { name?: string; arguments?: string };
+}
+
+/**
+ * Convert Vercel AI SDK tools to OpenAI function calling format.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function toolsToOpenAIFormat(tools: Record<string, any>) {
+  return Object.entries(tools).map(([name, t]) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const zodSchema = (t as any).parameters;
+    let jsonSchema: Record<string, unknown> = { type: "object", properties: {} };
+    try {
+      if (zodSchema) {
+        jsonSchema = zodToJsonSchema(zodSchema, { target: "openAi" }) as Record<string, unknown>;
+        // Remove $schema and additionalProperties that OpenAI doesn't want
+        delete jsonSchema.$schema;
+        delete jsonSchema.additionalProperties;
+      }
+    } catch {
+      // Fallback: empty schema
+    }
+    return {
+      type: "function" as const,
+      function: {
+        name,
+        description: t.description || "",
+        parameters: jsonSchema,
+      },
+    };
+  });
+}
+
+/**
+ * Execute a tool call using the Vercel AI SDK tool definitions.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function executeToolCall(tools: Record<string, any>, name: string, args: string): Promise<string> {
+  const t = tools[name];
+  if (!t?.execute) {
+    return JSON.stringify({ error: `Unknown tool: ${name}` });
+  }
+  try {
+    const parsedArgs = JSON.parse(args);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = await t.execute(parsedArgs, {} as any);
+    return JSON.stringify(result);
+  } catch (e) {
+    return JSON.stringify({ error: (e as Error).message });
+  }
+}
+
+const MAX_STEPS = 6;
+
 /**
  * Custom streaming for OpenAI-compatible APIs (DeepSeek, Qwen, etc.)
  * that return reasoning_content in streaming responses.
- * The @ai-sdk/openai package does NOT extract this field.
+ * Now supports tool calling with multi-step execution.
  */
 async function runAgentWithOpenAIReasoning(opts: RunAgentOpts): Promise<RunAgentResult> {
   const config = await getProviderConfig(opts.modelRef);
+  const tools = await buildTools(opts.topicId, opts.webSearch ?? true, opts.onToolCall);
+  const openaiTools = toolsToOpenAIFormat(tools);
 
-  const apiMessages: Array<{ role: string; content: string }> = [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const apiMessages: Array<any> = [];
   if (opts.systemPrompt) {
     apiMessages.push({ role: "system", content: opts.systemPrompt });
   }
@@ -84,66 +165,124 @@ async function runAgentWithOpenAIReasoning(opts: RunAgentOpts): Promise<RunAgent
     apiMessages.push({ role: m.role, content: m.content });
   }
 
-  const body = {
-    model: config.modelId,
-    messages: apiMessages,
-    stream: true,
-  };
-
-  const res = await fetch(`${config.baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${config.apiKey}`,
-    },
-    body: JSON.stringify(body),
-    signal: opts.signal,
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`API error ${res.status}: ${errText}`);
-  }
-
   let full = "";
   let reasoning = "";
 
-  const reader = res.body!.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
+  for (let step = 0; step < MAX_STEPS; step++) {
+    const body: Record<string, unknown> = {
+      model: config.modelId,
+      messages: apiMessages,
+      stream: true,
+    };
+    if (openaiTools.length > 0) {
+      body.tools = openaiTools;
+    }
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
+    const res = await fetch(`${config.baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${config.apiKey}`,
+      },
+      body: JSON.stringify(body),
+      signal: opts.signal,
+    });
 
-    const lines = buffer.split("\n");
-    buffer = lines.pop() ?? "";
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`API error ${res.status}: ${errText}`);
+    }
 
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed || !trimmed.startsWith("data:")) continue;
-      const data = trimmed.slice(5).trim();
-      if (data === "[DONE]") break;
+    const reader = res.body!.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
 
-      try {
-        const parsed = JSON.parse(data);
-        const delta = parsed.choices?.[0]?.delta;
-        if (!delta) continue;
+    let stepContent = "";
+    const toolCallsMap = new Map<number, { id: string; type: string; name: string; arguments: string }>();
 
-        // Extract reasoning_content (DeepSeek, Qwen, etc.)
-        if (delta.reasoning_content && opts.onReasoning) {
-          reasoning += delta.reasoning_content;
-          opts.onReasoning(delta.reasoning_content);
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || !trimmed.startsWith("data:")) continue;
+        const data = trimmed.slice(5).trim();
+        if (data === "[DONE]") continue;
+
+        try {
+          const parsed = JSON.parse(data);
+          const delta = parsed.choices?.[0]?.delta;
+          if (!delta) continue;
+
+          // Extract reasoning_content (DeepSeek, Qwen, etc.)
+          if (delta.reasoning_content && opts.onReasoning) {
+            reasoning += delta.reasoning_content;
+            opts.onReasoning(delta.reasoning_content);
+          }
+
+          // Extract regular content
+          if (delta.content) {
+            stepContent += delta.content;
+            full += delta.content;
+            opts.onToken(delta.content);
+          }
+
+          // Accumulate tool calls
+          if (Array.isArray(delta.tool_calls)) {
+            for (const tc of delta.tool_calls as StreamToolCallDelta[]) {
+              const idx = tc.index;
+              if (!toolCallsMap.has(idx)) {
+                toolCallsMap.set(idx, { id: "", type: "function", name: "", arguments: "" });
+              }
+              const entry = toolCallsMap.get(idx)!;
+              if (tc.id) entry.id = tc.id;
+              if (tc.type) entry.type = tc.type;
+              if (tc.function?.name) entry.name += tc.function.name;
+              if (tc.function?.arguments) entry.arguments += tc.function.arguments;
+            }
+          }
+        } catch {
+          // Skip malformed JSON
         }
-        // Extract regular content
-        if (delta.content) {
-          full += delta.content;
-          opts.onToken(delta.content);
-        }
-      } catch {
-        // Skip malformed JSON
       }
+    }
+
+    // If no tool calls, we're done
+    if (toolCallsMap.size === 0) {
+      break;
+    }
+
+    // Build assistant message with tool calls
+    const toolCalls: OpenAIToolCall[] = Array.from(toolCallsMap.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([, tc]) => ({
+        id: tc.id,
+        type: tc.type,
+        function: { name: tc.name, arguments: tc.arguments },
+      }));
+
+    apiMessages.push({
+      role: "assistant",
+      content: stepContent || null,
+      tool_calls: toolCalls,
+    });
+
+    // Execute each tool and add results
+    for (const tc of toolCalls) {
+      const toolName = tc.function.name;
+
+      const resultStr = await executeToolCall(tools, toolName, tc.function.arguments);
+
+      apiMessages.push({
+        role: "tool",
+        tool_call_id: tc.id,
+        content: resultStr,
+      });
     }
   }
 

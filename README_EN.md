@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
-  <a href="https://github.com/waterkokoro/KUI/releases"><img src="https://img.shields.io/badge/version-0.1.6-blue" alt="Version"></a>
+  <a href="https://github.com/waterkokoro/KUI/releases"><img src="https://img.shields.io/badge/version-0.1.7-blue" alt="Version"></a>
   <a href="https://github.com/waterkokoro/KUI/stargazers"><img src="https://img.shields.io/github/stars/waterkokoro/KUI?style=social" alt="Stars"></a>
   <a href="https://github.com/waterkokoro/KUI/network/members"><img src="https://img.shields.io/github/forks/waterkokoro/KUI?style=social" alt="Forks"></a>
   <a href="https://github.com/waterkokoro/KUI/issues"><img src="https://img.shields.io/github/issues/waterkokoro/KUI" alt="Issues"></a>
@@ -45,6 +45,19 @@
 
 ---
 
+## 📋 Changelog
+
+### v0.1.7
+
+- 🌐 **Web Search**: Enable web search in chat, AI automatically retrieves web pages and cites sources
+- 🔍 **Multiple Search Providers**: Support for Tavily, Serper (Google), Brave Search, AnySearch Free with priority-based auto-fallback
+- 🛠️ **Enhanced Tool Calling**: Full function calling support for OpenAI-compatible APIs, including in thinking mode
+- 📎 **Reference Display**: Search results shown in a collapsible reference list with clickable source links
+- 🎨 **UI Improvements**: Chevron-style collapse arrows for reasoning blocks, pulse animation indicator for search-in-progress
+- 🐛 **Fix**: Improved OpenAI streaming stability in multi-step tool call scenarios
+
+---
+
 ## ✨ Key Features
 
 ### 🌳 Tree Directory Management
@@ -65,6 +78,13 @@
 - One-click locate current topic's position in the directory tree
 - Auto-expand ancestor nodes with smooth scroll to target
 - Quickly find your current session in deeply nested trees
+
+### 🌐 Web Search
+
+- One-click web search in conversations, AI retrieves real-time web information automatically
+- 4 search providers: Tavily (AI search), Serper (Google), Brave Search, AnySearch Free
+- Auto mode tries configured providers by priority, falls back to free provider on failure
+- Search results displayed as collapsible reference list for easy source verification
 
 ### 🤖 Custom Agents
 

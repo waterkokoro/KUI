@@ -2,6 +2,7 @@ import { Button, Tabs } from "antd";
 import { ArrowLeftOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { GeneralTab } from "./tabs/GeneralTab";
+import { SearchTab } from "./tabs/SearchTab";
 import { ProvidersTab } from "./tabs/ProvidersTab";
 import { AgentsTab } from "./tabs/AgentsTab";
 import { AppearanceTab } from "./tabs/AppearanceTab";
@@ -28,6 +29,7 @@ export function SettingsView() {
         onChange={(key) => setSettingsTab(key)}
         items={[
           { key: "general", label: t("settings.tab.general"), children: <GeneralTab /> },
+          { key: "search", label: t("settings.tab.search"), children: <SearchTab /> },
           { key: "profiles", label: t("settings.tab.profiles"), children: <ProfilesTab /> },
           { key: "providers", label: t("settings.tab.providers"), children: <ProvidersTab /> },
           { key: "agents", label: t("settings.tab.agents"), children: <AgentsTab /> },
@@ -42,7 +44,7 @@ export function SettingsView() {
                   <strong>{t("settings.about.appData")}: </strong>
                   <code>{appDataDir}</code>
                 </div>
-                <div style={{ marginTop: 6, opacity: 0.7 }}>kui v0.1.6</div>
+                <div style={{ marginTop: 6, opacity: 0.7 }}>kui v0.1.7</div>
               </div>
             ),
           },

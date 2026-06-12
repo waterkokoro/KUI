@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, Dropdown, Input, Modal, Popover, Space, Tooltip, message as antdMessage } from "antd";
-import { AimOutlined, CopyOutlined, EditOutlined, FolderOpenOutlined, InfoCircleOutlined, PlusOutlined, RobotOutlined, StopOutlined, ThunderboltOutlined } from "@ant-design/icons";
+import { AimOutlined, CopyOutlined, EditOutlined, FolderOpenOutlined, GlobalOutlined, InfoCircleOutlined, PlusOutlined, RobotOutlined, StopOutlined, ThunderboltOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { useTranslation } from "react-i18next";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
@@ -13,7 +13,7 @@ import { listAgents } from "../../db/repos/agents";
 import { listProviders, listModels } from "../../db/repos/providers";
 import { topicMdAbsPath, appendMessageMd } from "../../fs/mdRepo";
 import type { Agent, MessageRow, ModelRow, Provider, Topic } from "../../types";
-import { runAgent } from "../agent/runAgent";
+import { runAgent, type ToolCallEvent } from "../agent/runAgent";
 import { DeriveSubTopicModal } from "./DeriveSubTopicModal";
 import { EMOJI_PRESETS, DEFAULT_TOPIC_ICON } from "../../constants/emojiPresets";
 import { Twemoji } from "../../components/Twemoji";
@@ -74,6 +74,9 @@ export function ChatView() {
   const [streamBuf, setStreamBuf] = useState("");
   const [reasoningBuf, setReasoningBuf] = useState("");
   const [thinkingEnabled, setThinkingEnabled] = useState(false);
+  const [webSearchEnabled, setWebSearchEnabled] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchRefs, setSearchRefs] = useState<{ title: string; url: string }[]>([]);
   const [mdPath, setMdPath] = useState("");
   const [deriveOpen, setDeriveOpen] = useState(false);
   const [deriveSeed, setDeriveSeed] = useState<string>("");
@@ -149,6 +152,8 @@ export function ChatView() {
     setStreaming(true);
     setStreamBuf("");
     setReasoningBuf("");
+    setSearchQuery("");
+    setSearchRefs([]);
     stopRequestedRef.current = false;
     const controller = new AbortController();
     abortRef.current = controller;
@@ -159,6 +164,7 @@ export function ChatView() {
         content: m.content,
       }));
       let reasoningAll = "";
+      let collectedRefs: { title: string; url: string }[] = [];
       const { text } = await runAgent({
         modelRef: effectiveModelRef,
         systemPrompt: agent?.system_prompt ?? "",
@@ -166,6 +172,7 @@ export function ChatView() {
         messages: history,
         signal: controller.signal,
         thinking: thinkingEnabled,
+        webSearch: webSearchEnabled,
         onToken: (delta) => {
           buf += delta;
           setStreamBuf(buf);
@@ -174,11 +181,36 @@ export function ChatView() {
           reasoningAll += delta;
           setReasoningBuf(reasoningAll);
         } : undefined,
+        onToolCall: (event: ToolCallEvent) => {
+          if (event.toolName === "web_search") {
+            if (event.status === "calling") {
+              setSearchQuery(event.args.query as string);
+            } else if (event.status === "done") {
+              setSearchQuery("");
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const result = event.result as any;
+              if (result?.results?.length) {
+                const refs = result.results.slice(0, 10).map((r: { title: string; url: string }) => ({
+                  title: r.title,
+                  url: r.url,
+                }));
+                collectedRefs = refs;
+                setSearchRefs(refs);
+              }
+            }
+          }
+        },
       });
-      // Build final content with optional reasoning block
-      const finalContent = reasoningAll
+      // Build final content with optional reasoning block and references
+      let finalContent = reasoningAll
         ? `<details class="kui-reasoning-block"><summary>${t("chat.reasoningTitle")}</summary>\n\n${reasoningAll}\n\n</details>\n\n${text}`
         : text;
+      if (collectedRefs.length > 0) {
+        const refsHtml = collectedRefs
+          .map((r, i) => `${i + 1}. [${r.title}](${r.url})`)
+          .join("\n");
+        finalContent += `\n\n<details class="kui-search-refs"><summary>${t("chat.searchRefs")} (${collectedRefs.length})</summary>\n\n${refsHtml}\n\n</details>`;
+      }
       const aiMsg = await insertMessage({
         topic_id: topic.id,
         role: "assistant",
@@ -214,6 +246,8 @@ export function ChatView() {
       setStreaming(false);
       setStreamBuf("");
       setReasoningBuf("");
+      setSearchQuery("");
+      setSearchRefs([]);
       abortRef.current = null;
       stopRequestedRef.current = false;
     }
@@ -455,13 +489,27 @@ export function ChatView() {
             <div className="kui-chat-row assistant">
               {renderStreamAvatar()}
               <div className="kui-chat-bubble assistant">
-                <div className="kui-chat-meta">{t("chat.thinking")}</div>
+                <div className="kui-chat-meta">
+                  {searchQuery
+                    ? <span className="kui-search-indicator"><GlobalOutlined /> {t("chat.searching")} "{searchQuery}"</span>
+                    : t("chat.thinking")}
+                </div>
                 {thinkingEnabled && reasoningBuf && (
                   <details className="kui-reasoning-block" open={!streamBuf}>
                     <summary>{t("chat.reasoningTitle")}</summary>
                     <div className="kui-reasoning-content">
                       <Markdown content={reasoningBuf} />
                     </div>
+                  </details>
+                )}
+                {searchRefs.length > 0 && (
+                  <details className="kui-search-refs" open>
+                    <summary>{t("chat.searchRefs")} ({searchRefs.length})</summary>
+                    <ol>
+                      {searchRefs.map((r, i) => (
+                        <li key={i}><a href={r.url} target="_blank" rel="noopener noreferrer">{r.title}</a></li>
+                      ))}
+                    </ol>
                   </details>
                 )}
                 {streamBuf && <Markdown content={streamBuf} />}
@@ -509,6 +557,14 @@ export function ChatView() {
                   <path d="M10 21h4" />
                 </svg>
                 <span>{t("chat.thinkingMode")}</span>
+              </button>
+              <button
+                className={`kui-selector-pill${webSearchEnabled ? " kui-selector-pill--active" : ""}`}
+                onClick={() => setWebSearchEnabled((v) => !v)}
+                title={t("chat.webSearch")}
+              >
+                <GlobalOutlined />
+                <span>{t("chat.webSearch")}</span>
               </button>
               <Dropdown
                 trigger={["click"]}
