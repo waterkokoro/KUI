@@ -44,7 +44,7 @@ export function SettingsView() {
                   <strong>{t("settings.about.appData")}: </strong>
                   <code>{appDataDir}</code>
                 </div>
-                <div style={{ marginTop: 6, opacity: 0.7 }}>kui v0.1.7</div>
+                <div style={{ marginTop: 6, opacity: 0.7 }}>kui v0.1.8</div>
               </div>
             ),
           },
