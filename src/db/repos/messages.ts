@@ -14,6 +14,7 @@ export async function insertMessage(input: {
   topic_id: ID;
   role: "user" | "assistant" | "system";
   content: string;
+  interactive_data?: string | null;
   md_offset?: number | null;
   tokens?: number | null;
 }): Promise<MessageRow> {
@@ -21,13 +22,14 @@ export async function insertMessage(input: {
   const id = nanoid(12);
   const now = Date.now();
   await db.execute(
-    `INSERT INTO messages (id, topic_id, role, content, md_offset, tokens, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO messages (id, topic_id, role, content, interactive_data, md_offset, tokens, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       input.topic_id,
       input.role,
       input.content,
+      input.interactive_data ?? null,
       input.md_offset ?? null,
       input.tokens ?? null,
       now,
@@ -38,6 +40,7 @@ export async function insertMessage(input: {
     topic_id: input.topic_id,
     role: input.role,
     content: input.content,
+    interactive_data: input.interactive_data ?? null,
     md_offset: input.md_offset ?? null,
     tokens: input.tokens ?? null,
     created_at: now,

@@ -20,12 +20,15 @@ export interface Profile {
   created_at: number;
 }
 
+export type TopicType = "chat" | "interactive";
+
 export interface Topic {
   id: ID;
   parent_id: ID | null;
   profile_id: ID | null;
   title: string;
   icon: string | null;
+  type: TopicType;
   agent_id: ID | null;
   model_ref: string | null; // "providerId:modelId"
   summary: string | null;
@@ -39,6 +42,7 @@ export interface MessageRow {
   topic_id: ID;
   role: "user" | "assistant" | "system";
   content: string;
+  interactive_data: string | null;
   md_offset: number | null;
   tokens: number | null;
   created_at: number;

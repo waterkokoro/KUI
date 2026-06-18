@@ -1,6 +1,6 @@
 import { nanoid } from "nanoid";
 import { getDb } from "../sql";
-import type { Topic, ID } from "../../types";
+import type { Topic, ID, TopicType } from "../../types";
 
 export async function listTopics(profileId?: ID): Promise<Topic[]> {
   const db = await getDb();
@@ -26,6 +26,7 @@ export async function createTopic(input: {
   parent_id?: ID | null;
   profile_id?: ID | null;
   icon?: string | null;
+  type?: TopicType;
   agent_id?: ID | null;
   model_ref?: string | null;
   summary?: string | null;
@@ -39,6 +40,7 @@ export async function createTopic(input: {
     profile_id: input.profile_id ?? null,
     title: input.title || "Untitled",
     icon: input.icon ?? null,
+    type: input.type ?? "chat",
     agent_id: input.agent_id ?? null,
     model_ref: input.model_ref ?? null,
     summary: input.summary ?? null,
@@ -47,14 +49,15 @@ export async function createTopic(input: {
     updated_at: now,
   };
   await db.execute(
-    `INSERT INTO topics (id, parent_id, profile_id, title, icon, agent_id, model_ref, summary, sort_order, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO topics (id, parent_id, profile_id, title, icon, type, agent_id, model_ref, summary, sort_order, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       row.id,
       row.parent_id,
       row.profile_id,
       row.title,
       row.icon,
+      row.type,
       row.agent_id,
       row.model_ref,
       row.summary,
@@ -74,6 +77,7 @@ export async function updateTopic(id: ID, patch: Partial<Topic>): Promise<void> 
     "parent_id",
     "title",
     "icon",
+    "type",
     "agent_id",
     "model_ref",
     "summary",

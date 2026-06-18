@@ -3,10 +3,11 @@ import type { CoreMessage } from "ai";
 import { resolveModel, getProviderKind, getProviderConfig } from "./getModel";
 import { buildTools } from "./tools";
 import { zodToJsonSchema } from "zod-to-json-schema";
+import { INTERACTIVE_SYSTEM_PROMPT } from "../interactive/prompt";
 
 export interface ToolCallEvent {
   toolName: string;
-  status: "calling" | "done";
+  status: "calling" | "done" | "render";
   args: Record<string, unknown>;
   result?: unknown;
 }
@@ -21,12 +22,15 @@ export interface RunAgentOpts {
   onToolCall?: (event: ToolCallEvent) => void;
   thinking?: boolean;
   webSearch?: boolean;
+  interactive?: boolean;
   signal?: AbortSignal;
 }
 
 export interface RunAgentResult {
   text: string;
   reasoning: string;
+  /** render_ui 产生的交互 payload，如果 agent 调用了 render_ui */
+  interactivePayload?: unknown;
 }
 
 export async function runAgent(opts: RunAgentOpts): Promise<RunAgentResult> {
@@ -38,9 +42,31 @@ export async function runAgent(opts: RunAgentOpts): Promise<RunAgentResult> {
     return runAgentWithOpenAIReasoning(opts);
   }
 
+  // Inject current date/time so the model is time-aware
+  const now = new Date();
+  const timeHint = `[Current date and time: ${now.toISOString()} (${now.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })})]`;
+
+  // Build effective system prompt with interactive supplement
+  const basePrompt = opts.systemPrompt ? `${opts.systemPrompt}\n\n${timeHint}` : timeHint;
+  const effectiveSystemPrompt = opts.interactive
+    ? `${basePrompt}\n\n${INTERACTIVE_SYSTEM_PROMPT}`
+    : basePrompt;
+
   // For Anthropic or non-thinking mode, use Vercel AI SDK
   const model = await resolveModel(opts.modelRef);
-  const tools = await buildTools(opts.topicId, opts.webSearch ?? true, opts.onToolCall);
+
+  let interactivePayload: unknown = undefined;
+
+  // Wrap onToolCall to capture render_ui payloads
+  const origOnToolCall = opts.onToolCall;
+  const wrappedOnToolCall = (event: ToolCallEvent) => {
+    if (event.toolName === "render_ui" && event.status === "render") {
+      interactivePayload = event.result;
+    }
+    origOnToolCall?.(event);
+  };
+
+  const tools = await buildTools(opts.topicId, opts.webSearch ?? true, wrappedOnToolCall, opts.interactive ?? false);
   const messages: CoreMessage[] = opts.messages.map((m) => ({
     role: m.role,
     content: m.content,
@@ -54,7 +80,7 @@ export async function runAgent(opts: RunAgentOpts): Promise<RunAgentResult> {
 
   const result = streamText({
     model,
-    system: opts.systemPrompt || undefined,
+    system: effectiveSystemPrompt || undefined,
     messages,
     tools,
     maxSteps: 6,
@@ -72,10 +98,24 @@ export async function runAgent(opts: RunAgentOpts): Promise<RunAgentResult> {
     } else if (part.type === "text-delta") {
       full += (part as { type: "text-delta"; textDelta: string }).textDelta;
       opts.onToken((part as { type: "text-delta"; textDelta: string }).textDelta);
+    } else if (part.type === "tool-call") {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const tc = part as any;
+      // web_search fires its own events from within tools.ts execute()
+      if (tc.toolName !== "web_search") {
+        wrappedOnToolCall({ toolName: tc.toolName, status: "calling", args: (tc.args ?? {}) as Record<string, unknown> });
+      }
+    } else if (part.type === "tool-result") {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const tc = part as any;
+      // web_search fires its own done; render_ui fires "render" internally
+      if (tc.toolName !== "render_ui" && tc.toolName !== "web_search") {
+        wrappedOnToolCall({ toolName: tc.toolName, status: "done", args: (tc.args ?? {}) as Record<string, unknown> });
+      }
     }
   }
 
-  return { text: full, reasoning };
+  return { text: full, reasoning, interactivePayload };
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -153,13 +193,35 @@ const MAX_STEPS = 6;
  */
 async function runAgentWithOpenAIReasoning(opts: RunAgentOpts): Promise<RunAgentResult> {
   const config = await getProviderConfig(opts.modelRef);
-  const tools = await buildTools(opts.topicId, opts.webSearch ?? true, opts.onToolCall);
+
+  let interactivePayload: unknown = undefined;
+  let renderUiCalled = false;
+
+  const origOnToolCall = opts.onToolCall;
+  const wrappedOnToolCall = (event: ToolCallEvent) => {
+    if (event.toolName === "render_ui" && event.status === "render") {
+      interactivePayload = event.result;
+      renderUiCalled = true;
+    }
+    origOnToolCall?.(event);
+  };
+
+  const tools = await buildTools(opts.topicId, opts.webSearch ?? true, wrappedOnToolCall, opts.interactive ?? false);
   const openaiTools = toolsToOpenAIFormat(tools);
+
+  // Inject current date/time so the model is time-aware
+  const now2 = new Date();
+  const timeHint2 = `[Current date and time: ${now2.toISOString()} (${now2.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })})]`;
+
+  const basePrompt2 = opts.systemPrompt ? `${opts.systemPrompt}\n\n${timeHint2}` : timeHint2;
+  const effectiveSystemPrompt = opts.interactive
+    ? `${basePrompt2}\n\n${INTERACTIVE_SYSTEM_PROMPT}`
+    : basePrompt2;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const apiMessages: Array<any> = [];
-  if (opts.systemPrompt) {
-    apiMessages.push({ role: "system", content: opts.systemPrompt });
+  if (effectiveSystemPrompt) {
+    apiMessages.push({ role: "system", content: effectiveSystemPrompt });
   }
   for (const m of opts.messages) {
     apiMessages.push({ role: m.role, content: m.content });
@@ -275,18 +337,31 @@ async function runAgentWithOpenAIReasoning(opts: RunAgentOpts): Promise<RunAgent
     // Execute each tool and add results
     for (const tc of toolCalls) {
       const toolName = tc.function.name;
-
+      let parsedArgs: Record<string, unknown> = {};
+      try { parsedArgs = JSON.parse(tc.function.arguments); } catch { /* ignore */ }
+      // web_search fires its own events from within tools.ts execute()
+      if (toolName !== "web_search") {
+        opts.onToolCall?.({ toolName, status: "calling", args: parsedArgs });
+      }
       const resultStr = await executeToolCall(tools, toolName, tc.function.arguments);
-
+      // render_ui fires its own "render" event internally; web_search fires its own "done"
+      if (toolName !== "render_ui" && toolName !== "web_search") {
+        opts.onToolCall?.({ toolName, status: "done", args: parsedArgs });
+      }
       apiMessages.push({
         role: "tool",
         tool_call_id: tc.id,
         content: resultStr,
       });
     }
+
+    // If render_ui was called, stop processing - wait for user interaction
+    if (renderUiCalled) {
+      break;
+    }
   }
 
-  return { text: full, reasoning };
+  return { text: full, reasoning, interactivePayload };
 }
 
 export async function summarizeConversation(opts: {

@@ -15,6 +15,7 @@ interface AppState {
   view: "chat" | "graph" | "settings";
   settingsTab: string;
   profilesAutoCreate: boolean;
+  chatFullscreen: boolean;
   setReady(v: boolean): void;
   setAppDataDir(d: string): void;
   setSettings(s: Settings): void;
@@ -28,6 +29,7 @@ interface AppState {
   setSettingsTab(tab: string): void;
   requestProfileCreate(): void;
   clearProfileCreate(): void;
+  setChatFullscreen(v: boolean): void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -54,6 +56,7 @@ export const useAppStore = create<AppState>((set) => ({
   view: "chat",
   settingsTab: "general",
   profilesAutoCreate: false,
+  chatFullscreen: false,
   setReady: (v) => set({ ready: v }),
   setAppDataDir: (d) => set({ appDataDir: d }),
   setSettings: (s) => set({ settings: s }),
@@ -71,4 +74,5 @@ export const useAppStore = create<AppState>((set) => ({
   setSettingsTab: (tab) => set({ settingsTab: tab }),
   requestProfileCreate: () => set({ view: "settings", settingsTab: "profiles", profilesAutoCreate: true }),
   clearProfileCreate: () => set({ profilesAutoCreate: false }),
+  setChatFullscreen: (v) => set({ chatFullscreen: v }),
 }));

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { App, Tree, Input, Button, Modal, Menu, Tooltip, Space, Dropdown } from "antd";
-import { PlusOutlined, MessageOutlined, ApartmentOutlined, SettingOutlined, DownOutlined } from "@ant-design/icons";
+import { PlusOutlined, MessageOutlined, ApartmentOutlined, SettingOutlined, DownOutlined, InteractionOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import mascotImg from "../../assets/kui/kui_def.png";
 import { useAppStore } from "../../stores/appStore";
@@ -33,7 +33,11 @@ function toAntd(nodes: TreeNode[], untitled: string): RawNode[] {
     raw: n.topic,
     title: (
       <span style={{ display: "inline-flex", alignItems: "center", width: "100%" }}>
-        <Twemoji emoji={n.topic.icon || DEFAULT_ICON} size={16} style={{ marginRight: 5, flexShrink: 0 }} />
+        {n.topic.type === "interactive" ? (
+          <InteractionOutlined style={{ marginRight: 5, flexShrink: 0, fontSize: 14, color: "var(--primary-color, #6366f1)" }} />
+        ) : (
+          <Twemoji emoji={n.topic.icon || DEFAULT_ICON} size={16} style={{ marginRight: 5, flexShrink: 0 }} />
+        )}
         {n.topic.title || untitled}
       </span>
     ),
@@ -149,6 +153,16 @@ export function TopicTreePanel() {
       reloadTree();
       setCurrentTopic(created.id);
       setView("chat");
+    } else if (key === "newInteractiveChild") {
+      const created = await createTopic({
+        title: t("topic.newInteractiveTitle"),
+        parent_id: topic.id,
+        profile_id: currentProfileId,
+        type: "interactive",
+      });
+      reloadTree();
+      setCurrentTopic(created.id);
+      setView("chat");
     } else if (key === "rename") {
       setRenaming({ topic, name: topic.title });
     } else if (key === "delete") {
@@ -188,10 +202,23 @@ export function TopicTreePanel() {
     setView("chat");
   };
 
+  const newInteractiveRoot = async () => {
+    const created = await createTopic({
+      title: t("topic.newInteractiveTitle"),
+      parent_id: null,
+      profile_id: currentProfileId,
+      type: "interactive",
+    });
+    reloadTree();
+    setCurrentTopic(created.id);
+    setView("chat");
+  };
+
   // 右键菜单项
   const ctxItems = ctx
     ? [
         { key: "newChild", label: t("tree.menu.newChild") },
+        { key: "newInteractiveChild", label: t("tree.menu.newInteractiveChild") },
         { key: "rename", label: t("tree.menu.rename") },
         { key: "setIcon", label: t("tree.menu.setIcon") },
         {
@@ -307,6 +334,14 @@ export function TopicTreePanel() {
             onClick={newRoot}
             title={t("tree.newRoot")}
           />
+          <Tooltip title={t("tree.newInteractiveRoot")}>
+            <Button
+              size="small"
+              type="default"
+              icon={<InteractionOutlined />}
+              onClick={newInteractiveRoot}
+            />
+          </Tooltip>
         </div>
       </div>
       <div className="kui-sidebar-tree" ref={treeContainerRef}>

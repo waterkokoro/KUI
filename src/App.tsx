@@ -13,7 +13,7 @@ import { bootstrap } from "./app/init";
 
 
 export default function App() {
-  const { ready, settings, view, currentTopicId, currentProfileId } = useAppStore();
+  const { ready, settings, view, currentTopicId, currentProfileId, chatFullscreen } = useAppStore();
 
   useEffect(() => {
     void bootstrap();
@@ -66,6 +66,13 @@ export default function App() {
               {view === "settings" && <SettingsView />}
             </Panel>
           </Group>
+
+          {/* Fullscreen chat overlay */}
+          {chatFullscreen && view === "chat" && (
+            <div className="kui-chat-fullscreen">
+              <ChatView />
+            </div>
+          )}
         </div>
       </AntdApp>
     </ConfigProvider>

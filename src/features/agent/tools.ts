@@ -11,6 +11,7 @@ export async function buildTools(
   currentTopicId: string | null,
   webSearchEnabled = true,
   onToolCall?: (event: ToolCallEvent) => void,
+  interactive = false,
 ) {
   return {
     search_notes: tool({
@@ -120,6 +121,60 @@ export async function buildTools(
               } catch (e) {
                 return { error: `Search failed: ${(e as Error).message}` };
               }
+            },
+          }),
+        }
+      : {}),
+
+    // ─────────────────────────────────────────────────────────────────
+    // render_ui: 渲染交互 UI 组件，仅在交互对话中可用
+    // ─────────────────────────────────────────────────────────────────
+    ...(interactive
+      ? {
+          render_ui: tool({
+            description:
+              "Render a rich UI component for the user. This is your PRIMARY output method for presenting structured content (tables, charts, cards, comparisons, lists, recommendations) — not just for collecting user input. Always prefer this over plain text when the answer contains structured, visual, or listable data. Also use for interactive elements (choices, forms, buttons). After calling this tool, the system will pause and wait for user interaction. Available types: selection (single/multiple choice), form (input fields), buttons (action buttons), card (info display with markdown), short_answer (text input), chart (bar/line/pie), translation (language pairs), custom (arbitrary HTML/CSS/JS), pages (multi-page container — use this to combine multiple component types in one response).",
+            parameters: z.object({
+              type: z.enum([
+                "selection", "form", "buttons", "card",
+                "short_answer", "chart", "translation", "custom", "pages",
+              ]).describe("UI component type"),
+              title: z.string().optional().describe("Title displayed above the component"),
+              description: z.string().optional().describe("Description text"),
+              data: z.record(z.string(), z.unknown()).describe("Component-specific data object. See system prompt for schema details."),
+              auto_submit: z.boolean().optional().describe("Auto-submit when all blocks complete (default true)"),
+            }),
+            execute: async ({ type, title, description, data, auto_submit }) => {
+              // Validate required data fields per component type
+              const requiredFields: Record<string, string[]> = {
+                selection: ["mode", "options"],
+                form: ["fields"],
+                buttons: ["items"],
+                card: ["title", "content"],
+                short_answer: ["question"],
+                chart: ["chartType", "data"],
+                translation: ["sourceLang", "targetLang", "entries"],
+                custom: ["html"],
+                pages: ["pages"],
+              };
+              const fields = requiredFields[type];
+              if (fields) {
+                const missing = fields.filter((f) => data[f] === undefined || data[f] === null);
+                if (missing.length > 0) {
+                  return { error: `render_ui: "${type}" requires data fields: ${missing.join(", ")}. Please fix and retry.` };
+                }
+              }
+              const ui_id = `ui_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+              const block = { type, title, description, data };
+              const payload = { ui_id, blocks: [block], auto_submit: auto_submit ?? true };
+              // Emit render event so ChatView can render the UI
+              onToolCall?.({
+                toolName: "render_ui",
+                status: "render",
+                args: { type, title, description },
+                result: payload,
+              });
+              return { pending: true, ui_id, message: "UI rendered. Waiting for user interaction. Do not continue until user responds." };
             },
           }),
         }

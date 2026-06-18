@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Button, Dropdown, Input, Modal, Popover, Space, Tooltip, message as antdMessage } from "antd";
-import { AimOutlined, CopyOutlined, EditOutlined, FolderOpenOutlined, GlobalOutlined, InfoCircleOutlined, PlusOutlined, RobotOutlined, StopOutlined, ThunderboltOutlined } from "@ant-design/icons";
+import { AimOutlined, ArrowLeftOutlined, CodeOutlined, CopyOutlined, EditOutlined, FolderOpenOutlined, FullscreenExitOutlined, FullscreenOutlined, GlobalOutlined, InfoCircleOutlined, LoadingOutlined, PlusOutlined, RobotOutlined, StopOutlined, ThunderboltOutlined, ToolOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { useTranslation } from "react-i18next";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
@@ -21,8 +21,105 @@ import kuiDef from "../../assets/logo_icon.png";
 import kuiHappy from "../../assets/kui/positive_emotions/kui_emoji_happy.png";
 import kuiYeah from "../../assets/kui/positive_emotions/kui_emoji_yeah.png";
 import kuiDefault from "../../assets/kui/kui_def.png";
+import { InteractiveContainer } from "../interactive/components/InteractiveContainer";
+import type { InteractivePayload, InteractiveResult, InteractiveMessageResult } from "../interactive/types";
+
+// ── ErrorBoundary for interactive components ──
+interface EBRProps { children: React.ReactNode; fallback: React.ReactNode }
+interface EBState { hasError: boolean }
+class InteractiveErrorBoundary extends React.Component<EBRProps, EBState> {
+  state: EBState = { hasError: false };
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(err: Error) { console.error("[InteractiveBlock render error]", err); }
+  render() { return this.state.hasError ? this.props.fallback : this.props.children; }
+}
 
 const MASCOT_IMGS = [kuiDefault, kuiHappy, kuiYeah];
+
+/** 检测流式内容中是否有未闭合的代码块，返回语言名 */
+function detectOpenCodeBlock(buf: string): string | null {
+  const re = /```(\w*)/g;
+  let count = 0;
+  let lastLang = "";
+  let m;
+  while ((m = re.exec(buf)) !== null) {
+    count++;
+    if (m[1]) lastLang = m[1];
+  }
+  return count % 2 === 1 ? lastLang : null;
+}
+
+/** 从思考内容中提取最后一行有意义的文本，用于实时预览 */
+function getLastThinkingLine(buf: string, maxLen = 80): string {
+  if (!buf) return "";
+  const lines = buf.split("\n").map(l => l.trim()).filter(l => {
+    if (!l) return false;
+    if (l.startsWith("`")) return false;
+    if (l.startsWith("#")) return false;
+    return true;
+  });
+  const last = lines[lines.length - 1] || "";
+  if (!last) return "";
+  return last.length > maxLen ? last.slice(0, maxLen) + "\u2026" : last;
+}
+
+/** 工具名称友好化显示 */
+const TOOL_DISPLAY_NAMES: Record<string, string> = {
+  render_ui: "构建组件",
+  web_search: "联网搜索",
+  read_file: "读取文件",
+  write_file: "写入文件",
+  list_files: "列出文件",
+};
+function friendlyToolName(name: string): string {
+  return TOOL_DISPLAY_NAMES[name] ?? name.replace(/_/g, " ");
+}
+
+/** 尝试将 user message content 解析为 InteractiveMessageResult */
+function tryParseInteractiveResult(content: string): InteractiveMessageResult | null {
+  try {
+    const parsed = JSON.parse(content);
+    if (parsed && typeof parsed === "object" && typeof parsed.ui_id === "string" && Array.isArray(parsed.results)) {
+      return parsed as InteractiveMessageResult;
+    }
+  } catch { /* not JSON */ }
+  return null;
+}
+
+/** 根据原始 payload 和交互结果，生成人类可读的摘要文本 */
+function getInteractiveResultSummary(payload: InteractivePayload, result: InteractiveResult): string {
+  const blockIdx = payload.blocks.findIndex((b) => b.type === result.type);
+  const block = blockIdx >= 0 ? payload.blocks[blockIdx] : null;
+
+  switch (result.type) {
+    case "selection": {
+      const selData = block?.type === "selection" ? block.data : null;
+      const labels = result.selected.map((id) => {
+        const opt = selData?.options.find((o) => o.id === id);
+        return opt ? (opt.emoji ? `${opt.emoji} ${opt.label}` : opt.label) : id;
+      });
+      return labels.join("、");
+    }
+    case "buttons": {
+      const btnData = block?.type === "buttons" ? block.data : null;
+      const btn = btnData?.items.find((b) => b.id === result.clicked);
+      return btn ? (btn.emoji ? `${btn.emoji} ${btn.label}` : btn.label) : result.clicked;
+    }
+    case "form": {
+      const formData = block?.type === "form" ? block.data : null;
+      const parts = Object.entries(result.values).map(([key, val]) => {
+        const field = formData?.fields.find((f) => f.name === key);
+        const label = field?.label || key;
+        return `${label}: ${String(val)}`;
+      });
+      return parts.join("、");
+    }
+    case "short_answer":
+      return result.answer;
+    default:
+      return JSON.stringify(result);
+  }
+}
 
 /** 根据小时数返回问候语 i18n key */
 function getGreetingKey(): string {
@@ -63,7 +160,7 @@ function useRandomMascot() {
 
 export function ChatView() {
   const { t } = useTranslation();
-  const { currentTopicId, settings, reloadTree, currentUser, locateInTree } = useAppStore();
+  const { currentTopicId, settings, reloadTree, currentUser, locateInTree, chatFullscreen, setChatFullscreen } = useAppStore();
   const [topic, setTopic] = useState<Topic | null>(null);
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -83,6 +180,14 @@ export function ChatView() {
   const abortRef = useRef<AbortController | null>(null);
   const stopRequestedRef = useRef(false);
   const composingRef = useRef(false);
+  // ── Custom component iframe retry tracking ──
+  const customRetryCountRef = useRef<Map<string, number>>(new Map());
+
+  // ── Interactive state ──
+  const [interactivePayload, setInteractivePayload] = useState<InteractivePayload | null>(null);
+  const [submittedUiIds, setSubmittedUiIds] = useState<Set<string>>(new Set());
+  // ── Tool calling indicator ──
+  const [toolCallingName, setToolCallingName] = useState<string>("");
 
   useEffect(() => {
     void Promise.all([listAgents(), listProviders(), listModels()]).then(([a, p, m]) => {
@@ -98,6 +203,9 @@ export function ChatView() {
       setMessages([]);
       return;
     }
+    setInteractivePayload(null);
+    setSubmittedUiIds(new Set());
+    customRetryCountRef.current.clear();
     void getTopic(currentTopicId).then((t) => setTopic(t));
     void listMessages(currentTopicId).then(setMessages);
     void topicMdAbsPath(currentTopicId).then(setMdPath);
@@ -149,6 +257,23 @@ export function ChatView() {
     await appendMessageMd(topic.id, "user", userText);
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
+    setInteractivePayload(null);
+    await runAgentFlow({
+      topicObj: topic,
+      agent,
+      userText,
+      allMessages: [...messages, userMsg],
+    });
+  };
+
+  // Shared agent execution logic
+  const runAgentFlow = async (params: {
+    topicObj: Topic;
+    agent: Agent | undefined;
+    userText: string;
+    allMessages: MessageRow[];
+  }) => {
+    const { topicObj, agent, userText, allMessages } = params;
     setStreaming(true);
     setStreamBuf("");
     setReasoningBuf("");
@@ -158,21 +283,23 @@ export function ChatView() {
     const controller = new AbortController();
     abortRef.current = controller;
     let buf = "";
+    let capturedInteractivePayload: InteractivePayload | null = null;
     try {
-      const history = [...messages, userMsg].map((m) => ({
+      const history = allMessages.map((m) => ({
         role: m.role,
         content: m.content,
       }));
       let reasoningAll = "";
       let collectedRefs: { title: string; url: string }[] = [];
       const { text } = await runAgent({
-        modelRef: effectiveModelRef,
+        modelRef: effectiveModelRef!,
         systemPrompt: agent?.system_prompt ?? "",
-        topicId: topic.id,
+        topicId: topicObj.id,
         messages: history,
         signal: controller.signal,
         thinking: thinkingEnabled,
         webSearch: webSearchEnabled,
+        interactive: topicObj.type === "interactive",
         onToken: (delta) => {
           buf += delta;
           setStreamBuf(buf);
@@ -182,6 +309,14 @@ export function ChatView() {
           setReasoningBuf(reasoningAll);
         } : undefined,
         onToolCall: (event: ToolCallEvent) => {
+          // Track generic tool calling state (only web_search has its own dedicated UI)
+          if (event.toolName !== "web_search") {
+            if (event.status === "calling") {
+              setToolCallingName(friendlyToolName(event.toolName));
+            } else if (event.status === "done" || event.status === "render") {
+              setToolCallingName("");
+            }
+          }
           if (event.toolName === "web_search") {
             if (event.status === "calling") {
               setSearchQuery(event.args.query as string);
@@ -199,6 +334,11 @@ export function ChatView() {
               }
             }
           }
+          if (event.toolName === "render_ui" && event.status === "render") {
+            const payload = event.result as InteractivePayload;
+            capturedInteractivePayload = payload;
+            setInteractivePayload(payload);
+          }
         },
       });
       // Build final content with optional reasoning block and references
@@ -211,31 +351,38 @@ export function ChatView() {
           .join("\n");
         finalContent += `\n\n<details class="kui-search-refs"><summary>${t("chat.searchRefs")} (${collectedRefs.length})</summary>\n\n${refsHtml}\n\n</details>`;
       }
+      const interactiveDataStr = capturedInteractivePayload
+        ? JSON.stringify(capturedInteractivePayload)
+        : null;
       const aiMsg = await insertMessage({
-        topic_id: topic.id,
+        topic_id: topicObj.id,
         role: "assistant",
         content: finalContent,
+        interactive_data: interactiveDataStr,
       });
-      await appendMessageMd(topic.id, "assistant", finalContent);
+      await appendMessageMd(topicObj.id, "assistant", finalContent);
       setMessages((prev) => [...prev, aiMsg]);
+      // Keep interactive payload active if render_ui was called
+      if (capturedInteractivePayload) {
+        setInteractivePayload(capturedInteractivePayload);
+      }
       // Auto-title for first reply
-      if (!topic.title || topic.title === t("topic.newTitle") || topic.title === "Untitled") {
+      if (!topicObj.title || topicObj.title === t("topic.newTitle") || topicObj.title === "Untitled") {
         const guess = userText.slice(0, 28).replace(/\n/g, " ");
-        await updateTopic(topic.id, { title: guess });
-        setTopic({ ...topic, title: guess });
+        await updateTopic(topicObj.id, { title: guess });
+        setTopic({ ...topicObj, title: guess });
         reloadTree();
       }
     } catch (e: unknown) {
       if (stopRequestedRef.current) {
-        // 用户主动中断：保留已收到的部分内容作为助手消息落库
         if (buf.trim()) {
           const partial = buf + `\n\n_[${t("chat.stopped")}]_`;
           const aiMsg = await insertMessage({
-            topic_id: topic.id,
+            topic_id: topicObj.id,
             role: "assistant",
             content: partial,
           });
-          await appendMessageMd(topic.id, "assistant", partial);
+          await appendMessageMd(topicObj.id, "assistant", partial);
           setMessages((prev) => [...prev, aiMsg]);
         }
         antdMessage.info(t("chat.stopped"));
@@ -248,9 +395,74 @@ export function ChatView() {
       setReasoningBuf("");
       setSearchQuery("");
       setSearchRefs([]);
+      setToolCallingName("");
       abortRef.current = null;
       stopRequestedRef.current = false;
     }
+  };
+
+  // Handle interactive component submission
+  const handleInteractiveSubmit = async (payload: InteractivePayload, results: InteractiveResult[]) => {
+    if (!topic || streaming) return;
+    // Mark as submitted
+    setSubmittedUiIds((prev) => new Set(prev).add(payload.ui_id));
+    setInteractivePayload(null);
+
+    const resultMsg: InteractiveMessageResult = { ui_id: payload.ui_id, results };
+    const userText = JSON.stringify(resultMsg);
+    const agent = agents.find((a) => a.id === effectiveAgentId);
+    const userMsg = await insertMessage({
+      topic_id: topic.id,
+      role: "user",
+      content: userText,
+    });
+    await appendMessageMd(topic.id, "user", userText);
+    setMessages((prev) => [...prev, userMsg]);
+    await runAgentFlow({
+      topicObj: topic,
+      agent,
+      userText: `[Interactive Response] ${userText}`,
+      allMessages: [...messages, userMsg],
+    });
+  };
+
+  // Handle custom component iframe JS error → AI retry (max 3)
+  const handleCustomRetry = async (errorMessage: string) => {
+    if (streaming || !topic) return;
+    const payload = interactivePayload;
+    if (!payload) return;
+
+    const uiId = payload.ui_id;
+    const count = (customRetryCountRef.current.get(uiId) ?? 0) + 1;
+    customRetryCountRef.current.set(uiId, count);
+
+    if (count > 3) {
+      antdMessage.error(t("chat.customRenderFailed"));
+      return;
+    }
+
+    antdMessage.info(t("chat.customRetrying", { count }));
+    setInteractivePayload(null);
+
+    const feedback = `[System] The custom HTML component you rendered had a JavaScript error: "${errorMessage}". Please fix the code and call render_ui again with corrected HTML. This is retry attempt ${count}/3.`;
+    const errMsg = await insertMessage({
+      topic_id: topic.id,
+      role: "user",
+      content: feedback,
+    });
+    let currentMsgs: MessageRow[] = [];
+    setMessages((prev) => {
+      currentMsgs = [...prev, errMsg];
+      return currentMsgs;
+    });
+
+    const agent = agents.find((a) => a.id === effectiveAgentId);
+    await runAgentFlow({
+      topicObj: topic,
+      agent,
+      userText: feedback,
+      allMessages: currentMsgs,
+    });
   };
 
   const stop = () => {
@@ -310,10 +522,31 @@ export function ChatView() {
   const sloganKey = useDailySlogan();
   const mascotImg = useRandomMascot();
 
+  // Build ui_id -> InteractivePayload map from assistant messages
+  const payloadMap = useMemo(() => {
+    const map = new Map<string, InteractivePayload>();
+    for (const msg of messages) {
+      if (msg.interactive_data) {
+        try {
+          const p = JSON.parse(msg.interactive_data) as InteractivePayload;
+          if (p.ui_id) map.set(p.ui_id, p);
+        } catch { /* ignore */ }
+      }
+    }
+    return map;
+  }, [messages]);
+
   if (!currentTopicId || !topic) {
     return (
-      <div className="kui-empty">
+      <div className={`kui-empty${chatFullscreen ? " kui-empty--fullscreen" : ""}`}>
         <div className="kui-drag-top" data-tauri-drag-region="true" />
+        {chatFullscreen && (
+          <div className="kui-fullscreen-back-bar">
+            <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => setChatFullscreen(false)}>
+              {t("chat.exitFullscreen")}
+            </Button>
+          </div>
+        )}
         <div className="kui-empty-content">
           <img src={mascotImg} alt="KUI" className="kui-empty-icon" />
           <div className="kui-empty-greeting">{t(getGreetingKey())}</div>
@@ -327,6 +560,16 @@ export function ChatView() {
   return (
     <>
       <div className="kui-chat-header" data-tauri-drag-region="true">
+        {chatFullscreen && (
+          <Tooltip title={t("chat.exitFullscreen")}>
+            <Button
+              type="text"
+              icon={<ArrowLeftOutlined />}
+              onClick={() => setChatFullscreen(false)}
+              className="kui-fullscreen-back-btn"
+            />
+          </Tooltip>
+        )}
         <div className="kui-chat-title-group">
           <Tooltip title={t("tree.menu.setIcon")}>
             <span
@@ -372,6 +615,14 @@ export function ChatView() {
         <Button size="small" icon={<PlusOutlined />} onClick={() => deriveFrom("")}>
           {t("topic.deriveSub")}
         </Button>
+        <Tooltip title={chatFullscreen ? t("chat.exitFullscreen") : t("chat.enterFullscreen")}>
+          <Button
+            size="small"
+            type="text"
+            icon={chatFullscreen ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
+            onClick={() => setChatFullscreen(!chatFullscreen)}
+          />
+        </Tooltip>
         <Popover
           trigger="click"
           placement="bottomRight"
@@ -416,6 +667,7 @@ export function ChatView() {
             <div className="kui-empty-hint">{t("empty.startHint")}</div>
           </div>
         )}
+
         {messages.map((m) => {
           const isUser = m.role === "user";
           const currentAgent = agents.find((a) => a.id === effectiveAgentId);
@@ -449,6 +701,44 @@ export function ChatView() {
             }
           };
 
+          // Parse interactive_data if present
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          let parsedInteractive: InteractivePayload | null = null;
+          if (m.interactive_data) {
+            try {
+              parsedInteractive = JSON.parse(m.interactive_data) as InteractivePayload;
+            } catch { /* ignore */ }
+          }
+          const isSubmitted = parsedInteractive ? submittedUiIds.has(parsedInteractive.ui_id) : false;
+
+          // Check if user message is an interactive result
+          let interactiveResultSummary: React.ReactNode = null;
+          if (isUser && !parsedInteractive) {
+            const parsedResult = tryParseInteractiveResult(m.content);
+            if (parsedResult) {
+              // Find the original payload from a previous assistant message
+              const origPayload = payloadMap.get(parsedResult.ui_id) ?? null;
+              if (origPayload) {
+                const summaries = parsedResult.results.map((r, i) => {
+                  const block = origPayload.blocks[i];
+                  const title = block?.title;
+                  const summaryText = getInteractiveResultSummary(origPayload, r);
+                  return (
+                    <div key={i} className="kui-interactive-result-item">
+                      {title && <span className="kui-interactive-result-title">{title}</span>}
+                      <span className="kui-interactive-result-value">{summaryText}</span>
+                    </div>
+                  );
+                });
+                interactiveResultSummary = (
+                  <div className="kui-interactive-result-summary">
+                    {summaries}
+                  </div>
+                );
+              }
+            }
+          }
+
           return (
             <div key={m.id} className={`kui-chat-row ${m.role}`}>
               {renderAvatar()}
@@ -467,7 +757,24 @@ export function ChatView() {
                     </Tooltip>
                   </Space>
                 </div>
-                <Markdown content={m.content} />
+                {parsedInteractive ? (
+                  <>
+                    <InteractiveErrorBoundary fallback={<Markdown content={m.content} />}>
+                      <InteractiveContainer
+                        payload={parsedInteractive}
+                        submitted={isSubmitted}
+                        onSubmit={(results) => handleInteractiveSubmit(parsedInteractive!, results)}
+                        onRetry={handleCustomRetry}
+                      />
+                    </InteractiveErrorBoundary>
+                    {/* Always show text content alongside interactive UI */}
+                    {m.content.trim() && <Markdown content={m.content} />}
+                  </>
+                ) : interactiveResultSummary ? (
+                  interactiveResultSummary
+                ) : (
+                  <Markdown content={m.content} />
+                )}
               </div>
             </div>
           );
@@ -490,9 +797,32 @@ export function ChatView() {
               {renderStreamAvatar()}
               <div className="kui-chat-bubble assistant">
                 <div className="kui-chat-meta">
-                  {searchQuery
-                    ? <span className="kui-search-indicator"><GlobalOutlined /> {t("chat.searching")} "{searchQuery}"</span>
-                    : t("chat.thinking")}
+                  {searchQuery ? (
+                    <span className="kui-search-indicator"><GlobalOutlined /> {t("chat.searching")} "{searchQuery}"</span>
+                  ) : toolCallingName ? (
+                    <span className="kui-tool-indicator"><ToolOutlined /> {t("chat.callingTool", { name: toolCallingName })}...</span>
+                  ) : (() => {
+                    // 优先检查流式输出中的代码块
+                    const streamCodeLang = detectOpenCodeBlock(streamBuf);
+                    if (streamCodeLang !== null) {
+                      return <span className="kui-code-indicator"><CodeOutlined /> {t("chat.writingCode", { lang: streamCodeLang || "code" })}...</span>;
+                    }
+                    // 检查思考内容中是否有正在编写的代码块
+                    const reasonCodeLang = detectOpenCodeBlock(reasoningBuf);
+                    if (reasonCodeLang !== null) {
+                      return <span className="kui-code-indicator"><CodeOutlined /> {t("chat.writingCode", { lang: reasonCodeLang || "code" })}...</span>;
+                    }
+                    // 思考中：显示最新思考片段作为实时预览
+                    const lastLine = getLastThinkingLine(reasoningBuf);
+                    return (
+                      <span className="kui-thinking-indicator">
+                        <LoadingOutlined />
+                        <span>{t("chat.thinking")}</span>
+                        {lastLine && <span className="kui-thinking-preview">{lastLine}</span>}
+                        <span className="kui-thinking-dots"><span></span><span></span><span></span></span>
+                      </span>
+                    );
+                  })()}
                 </div>
                 {thinkingEnabled && reasoningBuf && (
                   <details className="kui-reasoning-block" open={!streamBuf}>
@@ -513,6 +843,16 @@ export function ChatView() {
                   </details>
                 )}
                 {streamBuf && <Markdown content={streamBuf} />}
+                {interactivePayload && !submittedUiIds.has(interactivePayload.ui_id) && (
+                  <InteractiveErrorBoundary fallback={null}>
+                    <InteractiveContainer
+                      payload={interactivePayload}
+                      submitted={false}
+                      onSubmit={(results) => handleInteractiveSubmit(interactivePayload!, results)}
+                      onRetry={handleCustomRetry}
+                    />
+                  </InteractiveErrorBoundary>
+                )}
               </div>
             </div>
           );
@@ -527,7 +867,7 @@ export function ChatView() {
             onKeyDown={onKey}
             onCompositionStart={() => (composingRef.current = true)}
             onCompositionEnd={() => (composingRef.current = false)}
-            placeholder={t("topic.placeholder")}
+            placeholder={topic.type === "interactive" ? t("topic.interactivePlaceholder") : t("topic.placeholder")}
             rows={3}
           />
           <div className="kui-composer-toolbar">

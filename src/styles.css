@@ -676,12 +676,75 @@ html, body, #root {
   line-height: 1.6;
 }
 
+/* ---------- thinking indicator ---------- */
+.kui-thinking-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ant-color-text-secondary, rgba(255, 255, 255, 0.55));
+  flex-wrap: wrap;
+}
+
+.kui-thinking-indicator .anticon-loading {
+  font-size: 12px;
+  color: var(--ant-color-primary, #1677ff);
+}
+
+.kui-thinking-preview {
+  color: var(--ant-color-text-tertiary, rgba(255, 255, 255, 0.35));
+  font-size: 12px;
+  max-width: 400px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Animated bouncing dots */
+.kui-thinking-dots {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+}
+.kui-thinking-dots span {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--ant-color-primary, #1677ff);
+  animation: kui-bounce 1.4s ease-in-out infinite both;
+}
+.kui-thinking-dots span:nth-child(1) { animation-delay: 0s; }
+.kui-thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+.kui-thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes kui-bounce {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+  40% { transform: scale(1); opacity: 1; }
+}
+
 /* ---------- search indicator ---------- */
 .kui-search-indicator {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   color: var(--ant-color-primary, #1677ff);
+  animation: kui-pulse 1.5s ease-in-out infinite;
+}
+
+/* ---------- code writing indicator ---------- */
+.kui-code-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #52c41a;
+  animation: kui-pulse 1.5s ease-in-out infinite;
+}
+
+/* ---------- tool calling indicator ---------- */
+.kui-tool-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #faad14;
   animation: kui-pulse 1.5s ease-in-out infinite;
 }
 
@@ -1161,3 +1224,789 @@ html, body, #root {
   text-align: center;
   white-space: nowrap;
 }
+
+/* ═══════════════════════════════════════════════════════════════ */
+/*  Interactive Components                                        */
+/* ═══════════════════════════════════════════════════════════════ */
+
+/* ---------- Shared ---------- */
+.kui-interactive-wrapper {
+  position: relative;
+}
+
+.kui-interactive-expand-btn {
+  position: static;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: var(--ant-color-fill-quaternary, rgba(0,0,0,0.04));
+  color: var(--ant-color-text-tertiary, #999);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  transition: all 0.2s;
+  opacity: 1;
+}
+
+.kui-interactive-expand-group {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 10;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+
+.kui-interactive-wrapper:hover .kui-interactive-expand-group {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.kui-interactive-expand-btn:hover {
+  background: var(--ant-color-fill-tertiary, rgba(0,0,0,0.08));
+  color: var(--ant-color-text, inherit);
+}
+
+/* Modal action buttons (fullscreen / close) */
+.kui-interactive-action-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.kui-interactive-action-btn--neutral {
+  background: var(--ant-color-fill-quaternary, rgba(0,0,0,0.04));
+  color: var(--ant-color-text-secondary, #888);
+}
+
+.kui-interactive-action-btn--neutral:hover {
+  background: var(--ant-color-fill-tertiary, rgba(0,0,0,0.08));
+  color: var(--ant-color-primary, #1677ff);
+}
+
+.kui-interactive-action-btn--close {
+  background: rgba(255, 77, 79, 0.08);
+  color: #ff4d4f;
+}
+
+.kui-interactive-action-btn--close:hover {
+  background: rgba(255, 77, 79, 0.18);
+  color: #ff4d4f;
+}
+
+.kui-interactive-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.kui-interactive-container--expanded {
+  gap: 16px;
+}
+
+.kui-interactive-container--expanded .kui-interactive-block {
+  padding: 18px;
+}
+
+.kui-interactive-block {
+  background: rgba(99, 102, 241, 0.04);
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.kui-interactive-block--disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* Card block: CardRenderer provides its own visual container,
+   so strip the outer block wrapper to avoid nested borders */
+.kui-interactive-block--card {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+/* Pages block: keep the outer frame as a container in chat,
+   but child components (cards, charts, etc.) provide their own visuals */
+.kui-interactive-block--pages {
+  background: rgba(99, 102, 241, 0.04);
+}
+
+.kui-interactive-error {
+  padding: 12px;
+  font-size: 13px;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 8px;
+}
+
+.kui-interactive-block-header {
+  margin-bottom: 10px;
+}
+
+.kui-interactive-block-title {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+
+.kui-interactive-block-desc {
+  font-size: 12px;
+  color: var(--text-secondary, #888);
+}
+
+.kui-interactive-submitted-badge {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-secondary, #888);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.kui-interactive-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.kui-interactive-btn:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.kui-interactive-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.kui-interactive-btn--primary {
+  background: #6366f1;
+  color: #fff;
+  border-color: #6366f1;
+}
+
+.kui-interactive-btn--primary:hover:not(:disabled) {
+  background: #4f46e5;
+}
+
+.kui-interactive-btn--text {
+  border: none;
+  background: none;
+  padding: 4px 8px;
+}
+
+.kui-interactive-btn--dashed {
+  border-style: dashed;
+}
+
+.kui-interactive-btn--link {
+  border: none;
+  background: none;
+  color: #6366f1;
+  padding: 4px 8px;
+}
+
+/* ---------- Interactive Result Summary ---------- */
+.kui-interactive-result-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.kui-interactive-result-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 20px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.kui-interactive-result-title {
+  font-weight: 500;
+  color: var(--text-secondary, #888);
+}
+
+.kui-interactive-result-title::after {
+  content: ": ";
+}
+
+.kui-interactive-result-value {
+  color: #6366f1;
+  font-weight: 500;
+}
+
+/* ---------- Selection ---------- */
+.kui-interactive-selection {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.kui-interactive-selection-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.kui-interactive-selection-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.kui-interactive-selection-option:hover:not(.disabled) {
+  border-color: #6366f1;
+  background: rgba(99, 102, 241, 0.06);
+}
+
+.kui-interactive-selection-option.selected {
+  border-color: #6366f1;
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.kui-interactive-selection-option.disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.kui-interactive-selection-check {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6366f1;
+  flex-shrink: 0;
+}
+
+.kui-interactive-selection-emoji {
+  font-size: 20px;
+}
+
+.kui-interactive-selection-img {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.kui-interactive-selection-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.kui-interactive-selection-label {
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.kui-interactive-selection-desc {
+  font-size: 11px;
+  color: var(--text-secondary, #888);
+  margin-top: 2px;
+}
+
+/* ---------- Form ---------- */
+.kui-interactive-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.kui-interactive-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.kui-interactive-form-label {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.kui-interactive-form-required {
+  color: #ef4444;
+  margin-left: 2px;
+}
+
+.kui-interactive-form-input,
+.kui-interactive-form-textarea,
+.kui-interactive-form-select {
+  padding: 8px 10px;
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.kui-interactive-form-input:focus,
+.kui-interactive-form-textarea:focus,
+.kui-interactive-form-select:focus {
+  border-color: #6366f1;
+}
+
+.kui-interactive-form-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+/* ---------- Buttons ---------- */
+.kui-interactive-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.kui-interactive-buttons--vertical {
+  flex-direction: column;
+}
+
+.kui-interactive-btn-emoji {
+  font-size: 16px;
+}
+
+/* ---------- Card ---------- */
+.kui-interactive-card {
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.kui-interactive-card-img-wrap {
+  width: 100%;
+  max-height: 160px;
+  overflow: hidden;
+}
+
+.kui-interactive-card-img {
+  width: 100%;
+  object-fit: cover;
+}
+
+.kui-interactive-card-body {
+  padding: 12px;
+}
+
+.kui-interactive-card-title {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+
+.kui-interactive-card-content {
+  font-size: 13px;
+}
+
+.kui-interactive-card-tags {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.kui-interactive-card-tag {
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(99, 102, 241, 0.1);
+  font-size: 11px;
+  color: #6366f1;
+}
+
+.kui-interactive-card-footer {
+  padding: 8px 12px;
+  border-top: 1px solid rgba(99, 102, 241, 0.1);
+  font-size: 11px;
+  color: var(--text-secondary, #888);
+}
+
+/* ---------- Short Answer ---------- */
+.kui-interactive-short-answer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kui-interactive-short-answer-question {
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.kui-interactive-short-answer-input {
+  padding: 8px 10px;
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font-size: 13px;
+  outline: none;
+  resize: vertical;
+}
+
+.kui-interactive-short-answer-input:focus {
+  border-color: #6366f1;
+}
+
+/* ---------- Chart ---------- */
+.kui-interactive-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kui-interactive-chart-bar {
+  overflow-x: auto;
+}
+
+.kui-interactive-chart-pie-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.kui-interactive-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.kui-interactive-chart-pie-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.kui-interactive-chart-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.kui-interactive-chart-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.kui-interactive-chart-legend-pct {
+  color: var(--text-secondary, #888);
+  margin-left: 4px;
+}
+
+/* ---------- Translation ---------- */
+.kui-interactive-translation {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.kui-interactive-translation-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary, #888);
+}
+
+.kui-interactive-translation-lang {
+  font-weight: 600;
+  color: #6366f1;
+}
+
+.kui-interactive-translation-arrow {
+  color: var(--text-secondary, #888);
+}
+
+.kui-interactive-translation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kui-interactive-translation-entry {
+  padding: 8px;
+  border: 1px solid rgba(99, 102, 241, 0.1);
+  border-radius: 8px;
+}
+
+.kui-interactive-translation-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.kui-interactive-translation-source {
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.kui-interactive-translation-target {
+  font-size: 13px;
+  color: #6366f1;
+}
+
+.kui-interactive-translation-phonetic {
+  font-size: 11px;
+  color: var(--text-secondary, #888);
+  font-style: italic;
+}
+
+.kui-interactive-translation-speak {
+  border: none;
+  background: none;
+  color: var(--text-secondary, #888);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px;
+}
+
+.kui-interactive-translation-speak:hover {
+  color: #6366f1;
+}
+
+.kui-interactive-translation-note {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--text-secondary, #888);
+}
+
+/* ---------- Custom (iframe) ---------- */
+.kui-interactive-custom-iframe {
+  border-radius: 8px;
+  background: transparent;
+}
+
+/* ---------- Pages ---------- */
+.kui-interactive-pages {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kui-interactive-pages-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.kui-interactive-pages-indicator {
+  font-size: 12px;
+  color: var(--text-secondary, #888);
+}
+
+/* ---------- chat fullscreen ---------- */
+.kui-chat-fullscreen {
+  position: absolute;
+  inset: 0;
+  z-index: 1000;
+  background: var(--ant-color-bg-layout, var(--kui-fallback-bg));
+  display: flex;
+  flex-direction: column;
+  animation: kui-fade-in 0.18s ease-out;
+}
+
+@keyframes kui-fade-in {
+  from { opacity: 0; transform: scale(0.985); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.kui-chat-fullscreen .kui-chat-header {
+  -webkit-app-region: drag;
+  border-bottom: 1px solid var(--ant-color-border-secondary, var(--kui-fallback-border));
+  padding-left: 12px;
+}
+
+.kui-chat-fullscreen .kui-chat-messages {
+  padding: 28px 10% 16px;
+}
+
+.kui-chat-fullscreen .kui-chat-row {
+  max-width: 72%;
+}
+
+.kui-chat-fullscreen .kui-composer {
+  padding: 0 10% 20px;
+}
+
+/* Back button in fullscreen header */
+.kui-fullscreen-back-btn {
+  -webkit-app-region: no-drag;
+  font-size: 15px !important;
+  color: var(--ant-color-text-secondary, #888) !important;
+  transition: color 0.2s !important;
+}
+
+.kui-fullscreen-back-btn:hover {
+  color: var(--ant-color-text, inherit) !important;
+}
+
+/* Empty state fullscreen */
+.kui-empty--fullscreen {
+  position: relative;
+  height: 100%;
+}
+
+.kui-fullscreen-back-bar {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  z-index: 20;
+  -webkit-app-region: no-drag;
+}
+
+/* Wider messages area when not fullscreen but wider viewport */
+@media (min-width: 1200px) {
+  .kui-chat-fullscreen .kui-chat-messages {
+    padding: 28px 14% 16px;
+  }
+  .kui-chat-fullscreen .kui-composer {
+    padding: 0 14% 20px;
+  }
+  .kui-chat-fullscreen .kui-chat-row {
+    max-width: 66%;
+  }
+}
+
+/* ---------- interactive modal ---------- */
+.kui-interactive-modal .ant-modal-content {
+  padding: 0;
+  overflow: hidden;
+  border-radius: 14px;
+}
+
+.kui-interactive-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--ant-color-border-secondary, var(--kui-fallback-border));
+}
+
+.kui-interactive-modal-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ant-color-text, inherit);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kui-interactive-modal-body {
+  padding: 20px 24px 24px;
+  max-height: calc(85vh - 60px);
+  overflow-y: auto;
+}
+
+.kui-interactive-modal-body .kui-interactive-block {
+  margin-bottom: 4px;
+}
+
+/* fullscreen mode */
+.kui-interactive-modal--fullscreen.ant-modal-wrap {
+  padding: 0 !important;
+}
+
+.kui-interactive-modal--fullscreen .ant-modal {
+  max-width: 100vw !important;
+  width: 100vw !important;
+  top: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.kui-interactive-modal--fullscreen .ant-modal-content {
+  border-radius: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: none;
+  overflow: auto;
+}
+
+.kui-interactive-modal--fullscreen .kui-interactive-modal-body {
+  flex: 1;
+  max-height: calc(100vh - 56px);
+  overflow-y: auto;
+  padding: 0;
+}
+
+/* Reserve space for macOS traffic light buttons */
+.kui-interactive-modal--fullscreen .kui-interactive-modal-header {
+  padding-left: 78px;
+}
+
+/* Remove block borders/padding in fullscreen for true edge-to-edge */
+.kui-interactive-modal--fullscreen .kui-interactive-container {
+  gap: 0;
+}
+
+.kui-interactive-modal--fullscreen .kui-interactive-block {
+  border-radius: 0;
+  border: none;
+  background: transparent;
+  padding: 0;
+}
+
+.kui-interactive-modal--fullscreen .kui-interactive-block-body {
+  height: 100%;
+}
+
+/* Make custom iframe fill available space in fullscreen */
+.kui-interactive-modal--fullscreen .kui-interactive-block--custom .kui-interactive-block-body,
+.kui-interactive-modal--fullscreen .kui-interactive-custom {
+  height: calc(100vh - 56px);
+}
+
+.kui-interactive-modal--fullscreen .kui-interactive-block--custom iframe {
+  height: 100% !important;
+  border-radius: 0 !important;
+}
+
+.kui-interactive-modal-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
