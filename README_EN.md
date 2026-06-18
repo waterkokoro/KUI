@@ -47,6 +47,15 @@
 
 ## 📋 Changelog
 
+### v0.1.8
+
+- 🎨 **Interactive Conversation Mode**: AI can render rich interactive UI components instead of plain text output
+- 🧩 **9 Component Types**: Selection cards, forms, buttons, info cards, short answer, charts, translation pairs, custom HTML, and multi-page containers
+- 🖼️ **Expand & Fullscreen**: Interactive components support modal expansion and fullscreen preview for immersive viewing
+- 🔧 **Custom HTML Components**: AI can generate complete HTML+CSS+JS mini-apps running safely in sandboxed iframes (calculators, quizzes, visualizations, etc.)
+- 📊 **Chart Visualization**: Built-in bar, line, and pie charts — AI can render data charts directly
+- 🔄 **Interaction Feedback Loop**: User interaction results are automatically sent back to AI, driving the next conversational step
+
 ### v0.1.7
 
 - 🌐 **Web Search**: Enable web search in chat, AI automatically retrieves web pages and cites sources
@@ -59,6 +68,17 @@
 ---
 
 ## ✨ Key Features
+
+### 🎨 Interactive Conversation
+
+- AI can render 9 types of rich interactive UI components, replacing plain text output with visual components
+- **Selection cards** (single/multi-select), **forms** (input, textarea, dropdown, checkbox, number, date), **action buttons**
+- **Info cards** (Markdown content display), **short answer** (text input Q&A)
+- **Charts** (bar / line / pie), **translation pairs** (bilingual vocabulary cards)
+- **Custom HTML**: AI generates complete HTML+CSS+JS mini-apps running safely in sandboxed iframes (calculators, quizzes, data visualizations, etc.)
+- **Pages container**: Combine multiple component types into a paginated, comprehensive response
+- All interactive components support modal expansion and fullscreen viewing for immersive presentation
+- User interaction results are automatically fed back to AI, driving multi-turn interactive conversation flows
 
 ### 🌳 Tree Directory Management
 
