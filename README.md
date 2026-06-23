@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
-  <a href="https://github.com/waterkokoro/KUI/releases"><img src="https://img.shields.io/badge/version-0.2.0-blue" alt="Version"></a>
+  <a href="https://github.com/waterkokoro/KUI/releases"><img src="https://img.shields.io/badge/version-0.2.1-blue" alt="Version"></a>
   <a href="https://github.com/waterkokoro/KUI/stargazers"><img src="https://img.shields.io/github/stars/waterkokoro/KUI?style=social" alt="Stars"></a>
   <a href="https://github.com/waterkokoro/KUI/network/members"><img src="https://img.shields.io/github/forks/waterkokoro/KUI?style=social" alt="Forks"></a>
   <a href="https://github.com/waterkokoro/KUI/issues"><img src="https://img.shields.io/github/issues/waterkokoro/KUI" alt="Issues"></a>
@@ -113,15 +113,9 @@
 
 ## 📋 更新日志
 
-### v0.2.0
+### v0.2.1
 
-- 🚀 **新手引导流程**：全新 5 步引导向导，快速配置模型服务商、AI 助手和个人资料
-- 🔄 **自动更新**：内置应用更新检查器，启动时自动检测新版本，支持一键下载安装
-- 🔁 **重新回答**：支持对 AI 回复重新生成，删除旧回复并重新执行
-- ⏹️ **停止生成**：流式输出过程中可随时停止生成
-- 🌐 **多话题并发流式**：重构流式架构，每个话题独立流式状态，支持多话题同时生成
-- 🍎 **macOS 签名与公证**：CI/CD 集成 Apple 代码签名与公证，下载即可直接运行
-- 🐛 **稳定性修复**：修复交互组件状态持久化、竞态条件、级联删除等多个问题
+- 🐛 **修复**：pages 类型交互组件在禁用态下不再错误显示「已提交」徽章
 
 > 📜 历史版本更新记录请查看 [HISTORY.md](./HISTORY.md)
 

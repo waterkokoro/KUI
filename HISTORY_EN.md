@@ -1,5 +1,9 @@
 # KUI Changelog History
 
+## v0.2.1
+
+- 🐛 **Fix**: Pages-type interactive components no longer show a false "Submitted" badge in disabled state
+
 ## v0.2.0
 
 - 🚀 **Onboarding Wizard**: New 5-step setup guide for quick model provider, AI agent, and profile configuration

@@ -86,7 +86,7 @@ export function InteractiveBlock({ block, disabled, onSubmit, hideHeader, onErro
       <div className="kui-interactive-block-body">
         {renderBlock()}
       </div>
-      {disabled && block.type !== "card" && block.type !== "translation" && (
+      {disabled && block.type !== "card" && block.type !== "translation" && block.type !== "pages" && (
         <div className="kui-interactive-submitted-badge">
           <CheckOutlined /> {t("interactive.submitted")}
         </div>

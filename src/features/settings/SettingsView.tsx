@@ -61,7 +61,7 @@ export function SettingsView() {
                   <strong>{t("settings.about.appData")}: </strong>
                   <code>{appDataDir}</code>
                 </div>
-                <div style={{ marginTop: 6, opacity: 0.7 }}>kui v0.2.0</div>
+                <div style={{ marginTop: 6, opacity: 0.7 }}>kui v0.2.1</div>
                 <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
                   <Button
                     icon={<SyncOutlined spin={checking} />}

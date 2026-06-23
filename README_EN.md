@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
-  <a href="https://github.com/waterkokoro/KUI/releases"><img src="https://img.shields.io/badge/version-0.2.0-blue" alt="Version"></a>
+  <a href="https://github.com/waterkokoro/KUI/releases"><img src="https://img.shields.io/badge/version-0.2.1-blue" alt="Version"></a>
   <a href="https://github.com/waterkokoro/KUI/stargazers"><img src="https://img.shields.io/github/stars/waterkokoro/KUI?style=social" alt="Stars"></a>
   <a href="https://github.com/waterkokoro/KUI/network/members"><img src="https://img.shields.io/github/forks/waterkokoro/KUI?style=social" alt="Forks"></a>
   <a href="https://github.com/waterkokoro/KUI/issues"><img src="https://img.shields.io/github/issues/waterkokoro/KUI" alt="Issues"></a>
@@ -113,15 +113,9 @@
 
 ## 📋 Changelog
 
-### v0.2.0
+### v0.2.1
 
-- 🚀 **Onboarding Wizard**: New 5-step setup guide for quick model provider, AI agent, and profile configuration
-- 🔄 **Auto-Updater**: Built-in update checker with auto-detection on startup and one-click download & install
-- 🔁 **Regenerate Responses**: Re-generate AI replies by deleting old responses and re-running
-- ⏹️ **Stop Generation**: Stop streaming output at any time during generation
-- 🌐 **Concurrent Multi-Topic Streaming**: Refactored streaming architecture with per-topic isolated state, supporting simultaneous multi-topic generation
-- 🍎 **macOS Signing & Notarization**: CI/CD integrated with Apple code signing and notarization for ready-to-run downloads
-- 🐛 **Stability Fixes**: Fixed interactive component state persistence, race conditions, cascade deletion, and more
+- 🐛 **Fix**: Pages-type interactive components no longer show a false "Submitted" badge in disabled state
 
 > 📜 For previous version changelogs, see [HISTORY_EN.md](./HISTORY_EN.md)
 
