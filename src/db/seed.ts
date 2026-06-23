@@ -2,23 +2,24 @@ import { listAgents, upsertAgent } from "./repos/agents";
 import { listProviders, upsertProvider, listModels, upsertModel } from "./repos/providers";
 import { getOrCreateLocalUser } from "./repos/users";
 import { listProfiles, createProfile } from "./repos/profiles";
+import { getAllSettings } from "./repos/settings";
 import { getDb } from "./sql";
 
 export async function seedIfEmpty(): Promise<void> {
-  // --- User & Profile seeding ---
+  // --- User & Profile seeding (always run) ---
   const user = await getOrCreateLocalUser();
   const profiles = await listProfiles(user.id);
   let defaultProfileId: string;
   if (profiles.length === 0) {
     const workProfile = await createProfile({
       user_id: user.id,
-      name: "\u5DE5\u4F5C\u6A21\u5F0F",
-      icon: "\uD83D\uDCBC",
+      name: "工作模式",
+      icon: "💼",
     });
     await createProfile({
       user_id: user.id,
-      name: "\u751F\u6D3B\u6A21\u5F0F",
-      icon: "\uD83C\uDFE0",
+      name: "生活模式",
+      icon: "🏠",
     });
     defaultProfileId = workProfile.id;
   } else {
@@ -30,9 +31,13 @@ export async function seedIfEmpty(): Promise<void> {
   await db.execute("UPDATE topics SET profile_id = ? WHERE profile_id IS NULL", [defaultProfileId]);
   await db.execute("UPDATE tags SET profile_id = ? WHERE profile_id IS NULL", [defaultProfileId]);
 
+  // Check if onboarding is done; if so, seed defaults as before
+  const settings = await getAllSettings();
+  const onboardingDone = settings.onboarding_done;
+
   // --- Agent seeding ---
   const agents = await listAgents();
-  if (agents.length === 0) {
+  if (agents.length === 0 && onboardingDone) {
     await upsertAgent({
       name: "助理小葵",
       system_prompt:
@@ -47,7 +52,7 @@ export async function seedIfEmpty(): Promise<void> {
 
   // --- Provider seeding ---
   const providers = await listProviders();
-  if (providers.length === 0) {
+  if (providers.length === 0 && onboardingDone) {
     const presets = [
       { name: "OpenAI", kind: "openai" as const, base_url: "https://api.openai.com/v1", models: [
         { model_id: "gpt-4o-mini", display_name: "GPT-4o mini" },

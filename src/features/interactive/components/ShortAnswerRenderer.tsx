@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { ShortAnswerData, InteractiveResult } from "../types";
 
 interface Props {
@@ -8,6 +9,7 @@ interface Props {
 }
 
 export function ShortAnswerRenderer({ data, disabled, onSubmit }: Props) {
+  const { t } = useTranslation();
   const [answer, setAnswer] = useState("");
   if (!data) return <div className="kui-interactive-error">ShortAnswer: invalid data</div>;
 
@@ -34,7 +36,7 @@ export function ShortAnswerRenderer({ data, disabled, onSubmit }: Props) {
           disabled={!answer.trim()}
           onClick={submit}
         >
-          提交回答
+          {t("interactive.submitAnswer")}
         </button>
       )}
     </div>

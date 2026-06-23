@@ -61,6 +61,9 @@ export function CustomRenderer({ data, disabled, onSubmit, onError }: Props) {
   useEffect(() => {
     const handler = (e: MessageEvent) => {
       if (e.data?.type !== "kui-interactive-custom") return;
+      // Filter by eventKey to prevent cross-iframe interference when multiple
+      // custom components are mounted simultaneously
+      if (e.data.eventKey !== eventKey) return;
       if (e.data.payload?.__error) {
         console.error("[Custom iframe JS error]", e.data.payload.message, "line:", e.data.payload.line);
         onError?.(String(e.data.payload.message));
@@ -71,7 +74,7 @@ export function CustomRenderer({ data, disabled, onSubmit, onError }: Props) {
     };
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
-  }, [disabled, onSubmit, onError]);
+  }, [disabled, onSubmit, onError, eventKey]);
 
   if (!isValid) {
     return <div className="kui-interactive-error">Custom: invalid data</div>;
@@ -82,6 +85,7 @@ export function CustomRenderer({ data, disabled, onSubmit, onError }: Props) {
       <iframe
         className="kui-interactive-custom-iframe"
         srcDoc={srcDoc}
+        sandbox="allow-scripts allow-same-origin"
         style={{ height, width: "100%", border: "none", borderRadius: 8 }}
         title="custom-ui"
       />

@@ -47,6 +47,11 @@ export async function insertMessage(input: {
   };
 }
 
+export async function deleteMessage(messageId: ID): Promise<void> {
+  const db = await getDb();
+  await db.execute("DELETE FROM messages WHERE id = ?", [messageId]);
+}
+
 export async function deleteMessagesByTopic(topicId: ID): Promise<void> {
   const db = await getDb();
   await db.execute("DELETE FROM messages WHERE topic_id = ?", [topicId]);

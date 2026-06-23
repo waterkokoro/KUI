@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { message as antdMessage } from "antd";
+import { useTranslation } from "react-i18next";
 import type { FormData, InteractiveResult } from "../types";
 
 interface Props {
@@ -8,6 +10,7 @@ interface Props {
 }
 
 export function FormRenderer({ data, disabled, onSubmit }: Props) {
+  const { t } = useTranslation();
   const fields = Array.isArray(data?.fields) ? data.fields : [];
   const [values, setValues] = useState<Record<string, string | boolean | number>>(() => {
     const init: Record<string, string | boolean | number> = {};
@@ -24,6 +27,14 @@ export function FormRenderer({ data, disabled, onSubmit }: Props) {
 
   const submit = () => {
     if (disabled) return;
+    // Validate required fields
+    const missing = fields.filter(
+      (f) => f.required && (values[f.name] === "" || values[f.name] === undefined || values[f.name] === null)
+    );
+    if (missing.length > 0) {
+      antdMessage.warning(t("interactive.formRequired", { fields: missing.map((f) => f.label).join(", ") }));
+      return;
+    }
     onSubmit({ type: "form", values });
   };
 
@@ -102,7 +113,7 @@ export function FormRenderer({ data, disabled, onSubmit }: Props) {
       ))}
       {!disabled && (
         <button className="kui-interactive-btn kui-interactive-btn--primary" onClick={submit}>
-          {data.submitLabel || "提交"}
+          {data.submitLabel || t("interactive.submit")}
         </button>
       )}
     </div>

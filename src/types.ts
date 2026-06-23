@@ -99,4 +99,5 @@ export interface Settings {
   default_model_ref: string | null;
   search_provider: SearchProviderType;
   search_api_keys: Record<string, string>;
+  onboarding_done: boolean;
 }

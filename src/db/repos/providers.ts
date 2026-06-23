@@ -1,5 +1,6 @@
 import { nanoid } from "nanoid";
 import { getDb } from "../sql";
+import { getAllSettings, setSetting } from "./settings";
 import type { Provider, ModelRow, ID, ProviderKind } from "../../types";
 
 export async function listProviders(): Promise<Provider[]> {
@@ -47,6 +48,24 @@ export async function upsertProvider(p: {
 
 export async function deleteProvider(id: ID): Promise<void> {
   const db = await getDb();
+  const prefix = `${id}:`;
+  // Cascade delete models (foreign_keys pragma is not enabled, ON DELETE CASCADE won't fire)
+  await db.execute("DELETE FROM models WHERE provider_id = ?", [id]);
+  // Clear dangling model_ref references in topics (format: "providerId:modelId")
+  await db.execute(
+    "UPDATE topics SET model_ref = NULL WHERE model_ref IS NOT NULL AND substr(model_ref, 1, ?) = ?",
+    [prefix.length, prefix]
+  );
+  // Clear dangling default_model_ref in agents
+  await db.execute(
+    "UPDATE agents SET default_model_ref = NULL WHERE default_model_ref IS NOT NULL AND substr(default_model_ref, 1, ?) = ?",
+    [prefix.length, prefix]
+  );
+  // Clear default_model_ref in settings if it references this provider
+  const settings = await getAllSettings();
+  if (settings.default_model_ref && settings.default_model_ref.startsWith(prefix)) {
+    await setSetting("default_model_ref", null);
+  }
   await db.execute("DELETE FROM providers WHERE id = ?", [id]);
 }
 

@@ -34,3 +34,17 @@ export interface GrepHit {
 export async function grepTopics(root: string, query: string, isRegex = false): Promise<GrepHit[]> {
   return invoke<GrepHit[]>("grep_topics", { root, query, isRegex });
 }
+
+export interface UpdateInfo {
+  version: string;
+  body: string | null;
+  date: string | null;
+}
+
+export async function checkForUpdates(): Promise<UpdateInfo | null> {
+  return invoke<UpdateInfo | null>("check_for_updates");
+}
+
+export async function downloadAndInstallUpdate(): Promise<void> {
+  return invoke("download_and_install_update");
+}

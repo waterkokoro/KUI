@@ -1,11 +1,11 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "KUI",
-  "version": "0.1.8",
+  "version": "0.2.0",
   "identifier": "com.kui.app",
   "build": {
     "beforeDevCommand": "npm run dev",
-    "devUrl": "http://localhost:1420",
+    "devUrl": "http://localhost:10101",
     "beforeBuildCommand": "npm run build",
     "frontendDist": "../dist"
   },
@@ -34,6 +34,15 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDQyRjg4QjFEMUU4NUI4MjEKUldRaHVJVWVIWXY0UWtla1I5a0loMGRmREJ3N1I1ZkcvY0dYSDFIaklvNzR4OWpjSUZCS3BLUmUK",
+      "endpoints": [
+        "https://github.com/waterkokoro/KUI/releases/latest/download/latest.json"
+      ]
+    }
   }
 }

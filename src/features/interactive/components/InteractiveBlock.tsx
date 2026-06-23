@@ -1,4 +1,5 @@
 import { CheckOutlined } from "@ant-design/icons";
+import { useTranslation } from "react-i18next";
 import type { InteractiveBlockData, InteractiveResult } from "../types";
 import { SelectionRenderer } from "./SelectionRenderer";
 import { FormRenderer } from "./FormRenderer";
@@ -20,14 +21,28 @@ interface Props {
 }
 
 export function InteractiveBlock({ block, disabled, onSubmit, hideHeader, onError }: Props) {
+  const { t } = useTranslation();
   // Guard: block must exist and have a valid type
   if (!block || !block.type) {
     return <div className="kui-interactive-error">Block: missing type</div>;
   }
 
   const renderBlock = () => {
-    // Guard: data must exist for all block types
+    // Guard: data must exist for all block types — attempt recovery before giving up
     if (!block.data) {
+      // Try to recover: if block has title/description, render as a simple card
+      if (block.title || block.description) {
+        return (
+          <div className="kui-interactive-card">
+            <div className="kui-interactive-card-body">
+              {block.title && <div className="kui-interactive-card-title">{block.title}</div>}
+              {block.description && (
+                <div className="kui-interactive-card-content">{block.description}</div>
+              )}
+            </div>
+          </div>
+        );
+      }
       return <div className="kui-interactive-error">{block.type}: missing data</div>;
     }
     switch (block.type) {
@@ -73,7 +88,7 @@ export function InteractiveBlock({ block, disabled, onSubmit, hideHeader, onErro
       </div>
       {disabled && block.type !== "card" && block.type !== "translation" && (
         <div className="kui-interactive-submitted-badge">
-          <CheckOutlined /> 已提交
+          <CheckOutlined /> {t("interactive.submitted")}
         </div>
       )}
     </div>

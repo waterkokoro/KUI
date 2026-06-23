@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { ChartData, ChartDataPoint, InteractiveResult } from "../types";
 
 interface Props {
@@ -42,8 +43,7 @@ function BarChart({ data, onSubmit, disabled }: { data: ChartDataPoint[]; onSubm
   );
 }
 
-function LineChart({ data }: { data: ChartDataPoint[] }) {
-  if (data.length < 2) return null;
+function LineChart({ data, onSubmit, disabled }: { data: ChartDataPoint[]; onSubmit: Props["onSubmit"]; disabled: boolean }) {
   const maxVal = Math.max(...data.map((d) => d.value), 1);
   const W = 280, H = 140, padX = 16, padY = 10;
   const stepX = (W - padX * 2) / (data.length - 1);
@@ -56,7 +56,12 @@ function LineChart({ data }: { data: ChartDataPoint[] }) {
     <svg width={W} height={H + 24} viewBox={`0 0 ${W} ${H + 24}`}>
       <path d={pathD} fill="none" stroke="#6366f1" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
       {points.map((p, i) => (
-        <g key={i}>
+        <g
+          key={i}
+          className={!disabled ? "kui-interactive-chart-clickable" : ""}
+          onClick={() => !disabled && onSubmit({ type: "chart", selected: data[i].label })}
+          style={{ cursor: disabled ? "default" : "pointer" }}
+        >
           <circle cx={p.x} cy={p.y} r={4} fill="#6366f1" />
           <text x={p.x} y={H + 14} textAnchor="middle" fontSize={9} fill="currentColor" opacity={0.6}>
             {data[i].label.length > 4 ? data[i].label.slice(0, 4) + "…" : data[i].label}
@@ -113,13 +118,18 @@ function PieChart({ data, onSubmit, disabled }: { data: ChartDataPoint[]; onSubm
 }
 
 export function ChartRenderer({ data, disabled, onSubmit }: Props) {
+  const { t } = useTranslation();
   if (!data || !Array.isArray(data.data)) {
     return <div className="kui-interactive-error">Chart: invalid data</div>;
   }
   return (
     <div className="kui-interactive-chart">
       {data.chartType === "bar" && <BarChart data={data.data} onSubmit={onSubmit} disabled={disabled} />}
-      {data.chartType === "line" && <LineChart data={data.data} />}
+      {data.chartType === "line" && (data.data.length < 2 ? (
+        <div className="kui-interactive-error">{t("interactive.lineChartMinPoints")}</div>
+      ) : (
+        <LineChart data={data.data} onSubmit={onSubmit} disabled={disabled} />
+      ))}
       {data.chartType === "pie" && <PieChart data={data.data} onSubmit={onSubmit} disabled={disabled} />}
       {data.showLegend && data.chartType !== "pie" && (
         <div className="kui-interactive-chart-legend">

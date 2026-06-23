@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { CheckCircleFilled, CheckOutlined } from "@ant-design/icons";
+import { useTranslation } from "react-i18next";
 import type { SelectionData, InteractiveResult } from "../types";
 
 interface Props {
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export function SelectionRenderer({ data, disabled, onSubmit }: Props) {
+  const { t } = useTranslation();
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   if (!data || !Array.isArray(data.options)) {
@@ -75,7 +77,7 @@ export function SelectionRenderer({ data, disabled, onSubmit }: Props) {
           disabled={selected.size === 0}
           onClick={confirmMultiple}
         >
-          确认选择 ({selected.size})
+          {t("interactive.confirmSelection", { count: selected.size })}
         </button>
       )}
     </div>

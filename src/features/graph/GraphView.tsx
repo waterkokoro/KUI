@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import ReactFlow, {
   Background,
   Controls,
@@ -127,6 +127,13 @@ export function GraphView() {
   const onConnect = useCallback(
     async (c: Connection) => {
       if (!c.source || !c.target || c.source === c.target) return;
+      // Prevent duplicate links between the same pair of topics
+      const exists = edges.some(
+        (e) =>
+          (e.source === c.source && e.target === c.target) ||
+          (e.source === c.target && e.target === c.source)
+      );
+      if (exists) return;
       const link = await createLink(c.source, c.target, "");
       setEdges((eds) =>
         addEdge(
@@ -143,7 +150,7 @@ export function GraphView() {
         )
       );
     },
-    [setEdges]
+    [setEdges, edges]
   );
 
   const onEdgeClick = useCallback(
@@ -181,8 +188,6 @@ export function GraphView() {
     [reload, t]
   );
 
-  const initialNodes = useMemo(() => nodes, [nodes]);
-
   return (
     <>
       <div className="kui-chat-header" data-tauri-drag-region="true">
@@ -201,7 +206,7 @@ export function GraphView() {
       </div>
       <div className="kui-graph-canvas">
         <ReactFlow
-          nodes={initialNodes}
+          nodes={nodes}
           edges={edges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}

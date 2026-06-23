@@ -11,6 +11,7 @@ const DEFAULTS: Settings = {
   default_model_ref: null,
   search_provider: "auto",
   search_api_keys: {},
+  onboarding_done: false,
 };
 
 export async function getAllSettings(): Promise<Settings> {

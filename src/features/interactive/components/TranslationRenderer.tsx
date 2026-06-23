@@ -1,4 +1,5 @@
 import { SoundOutlined } from "@ant-design/icons";
+import { useTranslation } from "react-i18next";
 import type { TranslationData } from "../types";
 
 interface Props {
@@ -6,6 +7,7 @@ interface Props {
 }
 
 export function TranslationRenderer({ data }: Props) {
+  const { t } = useTranslation();
   if (!data || !Array.isArray(data.entries)) {
     return <div className="kui-interactive-error">Translation: invalid data</div>;
   }
@@ -32,7 +34,7 @@ export function TranslationRenderer({ data }: Props) {
               <button
                 className="kui-interactive-translation-speak"
                 onClick={() => speak(entry.source, data.sourceLang)}
-                title="朗读"
+                title={t("interactive.speak")}
               >
                 <SoundOutlined />
               </button>
@@ -45,7 +47,7 @@ export function TranslationRenderer({ data }: Props) {
               <button
                 className="kui-interactive-translation-speak"
                 onClick={() => speak(entry.target, data.targetLang)}
-                title="朗读"
+                title={t("interactive.speak")}
               >
                 <SoundOutlined />
               </button>

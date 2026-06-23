@@ -1,5 +1,6 @@
 import { nanoid } from "nanoid";
 import { getDb } from "../sql";
+import { deleteTopicDir } from "../../fs/mdRepo";
 import type { Profile, ID } from "../../types";
 
 export async function listProfiles(userId: ID): Promise<Profile[]> {
@@ -65,6 +66,43 @@ export async function deleteProfile(id: ID): Promise<boolean> {
     [id]
   );
   if (rows[0] && rows[0].cnt <= 1) return false;
+
+  // Collect topic IDs for file cleanup before deletion
+  const topics = await db.select<{ id: string }[]>(
+    "SELECT id FROM topics WHERE profile_id = ?",
+    [id]
+  );
+
+  // Cascade delete all associated data (foreign_keys pragma is not enabled)
+  await db.execute(
+    "DELETE FROM messages WHERE topic_id IN (SELECT id FROM topics WHERE profile_id = ?)",
+    [id]
+  );
+  await db.execute(
+    "DELETE FROM topic_links WHERE from_id IN (SELECT id FROM topics WHERE profile_id = ?) OR to_id IN (SELECT id FROM topics WHERE profile_id = ?)",
+    [id, id]
+  );
+  await db.execute(
+    "DELETE FROM topic_tags WHERE topic_id IN (SELECT id FROM topics WHERE profile_id = ?)",
+    [id]
+  );
+  // Delete tags that belong to this profile and are no longer referenced by any topic
+  await db.execute(
+    "DELETE FROM tags WHERE profile_id = ? AND id NOT IN (SELECT tag_id FROM topic_tags)",
+    [id]
+  );
+  // Promote children from other profiles to root (prevent dangling parent_id references)
+  await db.execute(
+    "UPDATE topics SET parent_id = NULL WHERE parent_id IN (SELECT id FROM topics WHERE profile_id = ?) AND profile_id != ?",
+    [id, id]
+  );
+  await db.execute("DELETE FROM topics WHERE profile_id = ?", [id]);
   await db.execute("DELETE FROM profiles WHERE id = ?", [id]);
+
+  // Clean up markdown files on disk
+  for (const t of topics) {
+    await deleteTopicDir(t.id).catch(() => {});
+  }
+
   return true;
 }

@@ -1,7 +1,5 @@
 <p align="center">
   <img src="./src/assets/kui/kui_def.png" alt="KUI" width="140">
-  <br>
-  <strong style="font-size: 1.5em;">KUI</strong>
 </p>
 
 <h1 align="center">KUI</h1>
@@ -12,7 +10,7 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
-  <a href="https://github.com/waterkokoro/KUI/releases"><img src="https://img.shields.io/badge/version-0.1.8-blue" alt="Version"></a>
+  <a href="https://github.com/waterkokoro/KUI/releases"><img src="https://img.shields.io/badge/version-0.2.0-blue" alt="Version"></a>
   <a href="https://github.com/waterkokoro/KUI/stargazers"><img src="https://img.shields.io/github/stars/waterkokoro/KUI?style=social" alt="Stars"></a>
   <a href="https://github.com/waterkokoro/KUI/network/members"><img src="https://img.shields.io/github/forks/waterkokoro/KUI?style=social" alt="Forks"></a>
   <a href="https://github.com/waterkokoro/KUI/issues"><img src="https://img.shields.io/github/issues/waterkokoro/KUI" alt="Issues"></a>
@@ -33,37 +31,99 @@
 
 ## 📸 Preview
 
+### Core Interface
+
 <p align="center">
-  <img src="./pics/kui_n1.png" alt="KUI Main Interface - Topic Tree & Welcome" width="700">
+  <img src="./pics/kui_n1.png" alt="KUI Main" width="700">
+  <br>
+  <em>Main Interface — Topic Tree & Welcome Page</em>
+</p>
+
+<p align="center">
+  <img src="./pics/kui_n4.png" alt="Chat View" width="340">
+  &nbsp;&nbsp;
+  <img src="./pics/kui_n2.png" alt="Graph View" width="340">
+  <br>
+  <em>Chat View &nbsp;/&nbsp; Graph View — Knowledge Graph</em>
+</p>
+
+<p align="center">
+  <img src="./pics/kui_n3.png" alt="Agent Management" width="340">
+  &nbsp;&nbsp;
+  <img src="./pics/模式.png" alt="Chat Modes" width="340">
+  <br>
+  <em>Agent Management &nbsp;/&nbsp; Chat Mode Switching</em>
+</p>
+
+### Interactive Conversation
+
+<p align="center">
+  <img src="./pics/交互式对话-ai卡片回答展示.png" alt="AI Info Card" width="225">
+  &nbsp;
+  <img src="./pics/交互式对话-ai让我选.png" alt="Selection Cards" width="225">
+  &nbsp;
+  <img src="./pics/交互式对话-股票信息查询.png" alt="Stock Query" width="225">
+  <br>
+  <em>Info Card &nbsp;/&nbsp; Selection Cards &nbsp;/&nbsp; Live Data Query</em>
+</p>
+
+<p align="center">
+  <img src="./pics/交互式对话-ai演示三角函数动画.png" alt="Trigonometry" width="340">
+  &nbsp;&nbsp;
+  <img src="./pics/交互式对话-ai演示线性代数.png" alt="Linear Algebra" width="340">
+  <br>
+  <em>Math Visualization — Trigonometry Animation &nbsp;/&nbsp; Linear Algebra</em>
+</p>
+
+<p align="center">
+  <img src="./pics/交互式对话-ai演示二叉树遍历1.png" alt="Tree Default" width="225">
+  &nbsp;
+  <img src="./pics/交互式对话-ai演示二叉树遍历2-放大.png" alt="Tree Zoomed" width="225">
+  &nbsp;
+  <img src="./pics/交互式对话-ai演示二叉树遍历3-全屏.png" alt="Tree Fullscreen" width="225">
+  <br>
+  <em>Binary Tree Traversal — Default &nbsp;/&nbsp; Zoomed &nbsp;/&nbsp; Fullscreen Views</em>
+</p>
+
+<p align="center">
+  <img src="./pics/交互式对话-小游戏.png" alt="Mini Game" width="340">
+  &nbsp;&nbsp;
+  <img src="./pics/交互式对话-给一个抽奖能力.png" alt="Lottery" width="340">
+  <br>
+  <em>Custom HTML Apps — Mini Game &nbsp;/&nbsp; Lottery</em>
+</p>
+
+### Ablation Study Comparison: KUI vs Doubao
+
+<p align="center">
+  <strong>Same question "Explain Ablation Study" — comparing response quality</strong>
   <br><br>
-  <img src="./pics/kui_n4.png" alt="KUI Chat & Context Menu" width="700">
+  <img src="./pics/豆包截图-讲解消融实验.png" alt="Doubao" width="340">
+  &nbsp;&nbsp;
+  <img src="./pics/KUI-讲解消融实验-回答页.png" alt="KUI" width="340">
+  <br>
+  <em>Left: Doubao &nbsp;|&nbsp; Right: KUI</em>
   <br><br>
-  <img src="./pics/kui_n2.png" alt="KUI Graph View - Knowledge Graph" width="700">
-  <br><br>
-  <img src="./pics/kui_n3.png" alt="KUI Agent Management" width="700">
+  <img src="./pics/KUI-讲解消融实验-放大回答.png" alt="KUI Zoomed" width="500">
+  <br>
+  <em>KUI — Zoomed Full Response View</em>
 </p>
 
 ---
 
 ## 📋 Changelog
 
-### v0.1.8
+### v0.2.0
 
-- 🎨 **Interactive Conversation Mode**: AI can render rich interactive UI components instead of plain text output
-- 🧩 **9 Component Types**: Selection cards, forms, buttons, info cards, short answer, charts, translation pairs, custom HTML, and multi-page containers
-- 🖼️ **Expand & Fullscreen**: Interactive components support modal expansion and fullscreen preview for immersive viewing
-- 🔧 **Custom HTML Components**: AI can generate complete HTML+CSS+JS mini-apps running safely in sandboxed iframes (calculators, quizzes, visualizations, etc.)
-- 📊 **Chart Visualization**: Built-in bar, line, and pie charts — AI can render data charts directly
-- 🔄 **Interaction Feedback Loop**: User interaction results are automatically sent back to AI, driving the next conversational step
+- 🚀 **Onboarding Wizard**: New 5-step setup guide for quick model provider, AI agent, and profile configuration
+- 🔄 **Auto-Updater**: Built-in update checker with auto-detection on startup and one-click download & install
+- 🔁 **Regenerate Responses**: Re-generate AI replies by deleting old responses and re-running
+- ⏹️ **Stop Generation**: Stop streaming output at any time during generation
+- 🌐 **Concurrent Multi-Topic Streaming**: Refactored streaming architecture with per-topic isolated state, supporting simultaneous multi-topic generation
+- 🍎 **macOS Signing & Notarization**: CI/CD integrated with Apple code signing and notarization for ready-to-run downloads
+- 🐛 **Stability Fixes**: Fixed interactive component state persistence, race conditions, cascade deletion, and more
 
-### v0.1.7
-
-- 🌐 **Web Search**: Enable web search in chat, AI automatically retrieves web pages and cites sources
-- 🔍 **Multiple Search Providers**: Support for Tavily, Serper (Google), Brave Search, AnySearch Free with priority-based auto-fallback
-- 🛠️ **Enhanced Tool Calling**: Full function calling support for OpenAI-compatible APIs, including in thinking mode
-- 📎 **Reference Display**: Search results shown in a collapsible reference list with clickable source links
-- 🎨 **UI Improvements**: Chevron-style collapse arrows for reasoning blocks, pulse animation indicator for search-in-progress
-- 🐛 **Fix**: Improved OpenAI streaming stability in multi-step tool call scenarios
+> 📜 For previous version changelogs, see [HISTORY_EN.md](./HISTORY_EN.md)
 
 ---
 

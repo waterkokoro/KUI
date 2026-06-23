@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import MDEditor from "@uiw/react-md-editor";
 import { Button, Tooltip, message as antdMessage } from "antd";
 import { CopyOutlined } from "@ant-design/icons";
+import { useTranslation } from "react-i18next";
 import { useAppStore } from "../stores/appStore";
 
 /**
@@ -34,6 +35,7 @@ interface CodeProps {
 }
 
 function CodeRenderer({ inline, className, children, ...rest }: CodeProps) {
+  const { t } = useTranslation();
   const lang = /language-(\w+)/.exec(className ?? "")?.[1] ?? "";
   const raw = String(children ?? "").replace(/\n$/, "");
 
@@ -56,14 +58,14 @@ function CodeRenderer({ inline, className, children, ...rest }: CodeProps) {
     <div className="kui-code-block">
       <div className="kui-code-bar">
         <span className="kui-code-lang">{lang || "text"}</span>
-        <Tooltip title="Copy">
+        <Tooltip title={t("common.copy")}>
           <Button
             type="text"
             size="small"
             icon={<CopyOutlined />}
             onClick={() => {
               void navigator.clipboard.writeText(raw);
-              antdMessage.success("Copied");
+              antdMessage.success(t("common.copied"));
             }}
           />
         </Tooltip>

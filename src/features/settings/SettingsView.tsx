@@ -1,5 +1,5 @@
-import { Button, Tabs } from "antd";
-import { ArrowLeftOutlined } from "@ant-design/icons";
+import { Button, Tabs, App as AntdApp } from "antd";
+import { ArrowLeftOutlined, PlayCircleOutlined, SyncOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import { GeneralTab } from "./tabs/GeneralTab";
 import { SearchTab } from "./tabs/SearchTab";
@@ -9,10 +9,27 @@ import { AppearanceTab } from "./tabs/AppearanceTab";
 import { LanguageTab } from "./tabs/LanguageTab";
 import { ProfilesTab } from "./tabs/ProfilesTab";
 import { useAppStore } from "../../stores/appStore";
+import { useUpdaterStore } from "../../stores/updaterStore";
+import { setSetting } from "../../db/repos/settings";
 
 export function SettingsView() {
   const { t } = useTranslation();
-  const { appDataDir, setView, settingsTab, setSettingsTab } = useAppStore();
+  const { message } = AntdApp.useApp();
+  const { appDataDir, setView, settingsTab, setSettingsTab, setShowOnboarding } = useAppStore();
+  const { check, checking } = useUpdaterStore();
+
+  const replayGuide = async () => {
+    await setSetting("onboarding_done", false);
+    setShowOnboarding(true);
+  };
+
+  const handleCheckUpdate = async () => {
+    await check(false); // manual check, shows modal if no update found
+    if (useUpdaterStore.getState().noUpdate) {
+      message.info(t("update.no_update", "已是最新版本"));
+    }
+  };
+
   return (
     <div className="kui-settings">
       <div className="kui-chat-header" data-tauri-drag-region="true">
@@ -44,7 +61,19 @@ export function SettingsView() {
                   <strong>{t("settings.about.appData")}: </strong>
                   <code>{appDataDir}</code>
                 </div>
-                <div style={{ marginTop: 6, opacity: 0.7 }}>kui v0.1.8</div>
+                <div style={{ marginTop: 6, opacity: 0.7 }}>kui v0.2.0</div>
+                <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
+                  <Button
+                    icon={<SyncOutlined spin={checking} />}
+                    loading={checking}
+                    onClick={handleCheckUpdate}
+                  >
+                    {t("update.check", "检查更新")}
+                  </Button>
+                  <Button icon={<PlayCircleOutlined />} onClick={replayGuide}>
+                    {t("settings.replayGuide")}
+                  </Button>
+                </div>
               </div>
             ),
           },

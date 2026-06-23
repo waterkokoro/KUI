@@ -98,6 +98,15 @@ export async function updateTopic(id: ID, patch: Partial<Topic>): Promise<void> 
 
 export async function deleteTopic(id: ID): Promise<void> {
   const db = await getDb();
+  // Promote direct children to the deleted topic's parent so they don't become orphaned
+  const topic = await getTopic(id);
+  const newParentId = topic?.parent_id ?? null;
+  await db.execute("UPDATE topics SET parent_id = ? WHERE parent_id = ?", [newParentId, id]);
+  // Clean up associated data to prevent orphaned records
+  await db.execute("DELETE FROM messages WHERE topic_id = ?", [id]);
+  await db.execute("DELETE FROM topic_links WHERE from_id = ? OR to_id = ?", [id, id]);
+  await db.execute("DELETE FROM topic_tags WHERE topic_id = ?", [id]);
+  // Delete the topic itself
   await db.execute("DELETE FROM topics WHERE id = ?", [id]);
 }
 

@@ -3,7 +3,7 @@ import type { CoreMessage } from "ai";
 import { resolveModel, getProviderKind, getProviderConfig } from "./getModel";
 import { buildTools } from "./tools";
 import { zodToJsonSchema } from "zod-to-json-schema";
-import { INTERACTIVE_SYSTEM_PROMPT } from "../interactive/prompt";
+import { INTERACTIVE_SYSTEM_PROMPT, getThemeHint } from "../interactive/prompt";
 
 export interface ToolCallEvent {
   toolName: string;
@@ -23,6 +23,7 @@ export interface RunAgentOpts {
   thinking?: boolean;
   webSearch?: boolean;
   interactive?: boolean;
+  theme?: "dark" | "light";
   signal?: AbortSignal;
 }
 
@@ -48,8 +49,9 @@ export async function runAgent(opts: RunAgentOpts): Promise<RunAgentResult> {
 
   // Build effective system prompt with interactive supplement
   const basePrompt = opts.systemPrompt ? `${opts.systemPrompt}\n\n${timeHint}` : timeHint;
+  const themeHint = opts.interactive && opts.theme ? getThemeHint(opts.theme) : "";
   const effectiveSystemPrompt = opts.interactive
-    ? `${basePrompt}\n\n${INTERACTIVE_SYSTEM_PROMPT}`
+    ? `${basePrompt}\n\n${INTERACTIVE_SYSTEM_PROMPT}${themeHint}`
     : basePrompt;
 
   // For Anthropic or non-thinking mode, use Vercel AI SDK
@@ -92,6 +94,12 @@ export async function runAgent(opts: RunAgentOpts): Promise<RunAgentResult> {
   let reasoning = "";
 
   for await (const part of result.fullStream) {
+    if (part.type === "error") {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const err = (part as any).error;
+      console.error(`[KUI-stream] runAgent stream ERROR part topic=${opts.topicId}`, err);
+      throw err instanceof Error ? err : new Error(String(err ?? "Unknown stream error"));
+    }
     if (part.type === "reasoning" && opts.onReasoning) {
       reasoning += (part as { type: "reasoning"; textDelta: string }).textDelta;
       opts.onReasoning((part as { type: "reasoning"; textDelta: string }).textDelta);
@@ -214,8 +222,9 @@ async function runAgentWithOpenAIReasoning(opts: RunAgentOpts): Promise<RunAgent
   const timeHint2 = `[Current date and time: ${now2.toISOString()} (${now2.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })})]`;
 
   const basePrompt2 = opts.systemPrompt ? `${opts.systemPrompt}\n\n${timeHint2}` : timeHint2;
+  const themeHint2 = opts.interactive && opts.theme ? getThemeHint(opts.theme) : "";
   const effectiveSystemPrompt = opts.interactive
-    ? `${basePrompt2}\n\n${INTERACTIVE_SYSTEM_PROMPT}`
+    ? `${basePrompt2}\n\n${INTERACTIVE_SYSTEM_PROMPT}${themeHint2}`
     : basePrompt2;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -362,6 +371,86 @@ async function runAgentWithOpenAIReasoning(opts: RunAgentOpts): Promise<RunAgent
   }
 
   return { text: full, reasoning, interactivePayload };
+}
+
+// 全局标题生成锁，防止多入口并发重复触发
+let _isGeneratingTitle = false;
+let _generatingTitleTopicId: string | null = null;
+export function isGeneratingTitle(): boolean {
+  return _isGeneratingTitle;
+}
+export function getGeneratingTitleTopicId(): string | null {
+  return _generatingTitleTopicId;
+}
+
+/**
+ * 根据对话内容生成简洁干练的标题
+ * 内置全局互斥锁：同一时刻只允许一个标题生成任务
+ * 返回 null 表示被锁拒绝
+ */
+export async function generateTitle(opts: {
+  modelRef: string;
+  topicId: string;
+  messages: { role: "user" | "assistant" | "system"; content: string }[];
+  language?: string;
+}): Promise<string | null> {
+  if (_isGeneratingTitle) return null;
+  _isGeneratingTitle = true;
+  _generatingTitleTopicId = opts.topicId;
+  try {
+    const model = await resolveModel(opts.modelRef);
+    const isZh = (opts.language ?? "").toLowerCase().startsWith("zh");
+
+    // Only use user/assistant messages for title generation
+    const convMessages = opts.messages.filter((m) => m.role !== "system");
+    if (convMessages.length === 0) return isZh ? "新对话" : "New Chat";
+
+    const sys = isZh
+      ? "你是标题提炼专家。根据对话内容，提炼一个极简标题。要求：不超过12个汉字，精准概括核心主题，无标点符号，无引号，无多余修饰词，直接输出标题文字。"
+      : "You are a title generator. Generate an ultra-concise title for this conversation. Rules: max 8 words, capture the core topic, no quotes, no punctuation, no filler words. Output ONLY the title text.";
+
+    const instr = isZh
+      ? "为以下对话生成一个简洁标题（不超过12个汉字）：\n\n"
+      : "Generate a concise title (max 8 words) for this conversation:\n\n";
+
+    // Clean message content: strip interactive JSON payloads and HTML tags
+    function cleanContent(content: string): string {
+      let cleaned = content;
+      cleaned = cleaned.replace(/\{[^{}]*"ui_id"[^{}]*\}/g, "").trim();
+      cleaned = cleaned.replace(/^\[Interactive Response\]\s*/i, "").trim();
+      cleaned = cleaned.replace(/<details[^>]*>[\s\S]*?<\/details>/g, "").trim();
+      cleaned = cleaned.replace(/<[^>]+>/g, "").trim();
+      cleaned = cleaned.replace(/```[\s\S]*?```/g, "").trim();
+      if (/^\s*[\[{]/.test(cleaned)) {
+        try { JSON.parse(cleaned); return ""; } catch { /* not valid JSON, keep it */ }
+      }
+      return cleaned;
+    }
+
+    const truncated = convMessages.slice(0, 6);
+    const userMsg =
+      instr +
+      truncated
+        .map((m) => {
+          const cleaned = cleanContent(m.content).slice(0, 200);
+          return cleaned ? `${m.role}: ${cleaned}` : null;
+        })
+        .filter(Boolean)
+        .join("\n");
+
+    if (!userMsg.trim()) return isZh ? "新对话" : "New Chat";
+
+    const { text } = await generateText({
+      model,
+      system: sys,
+      prompt: userMsg,
+    });
+
+    return text.replace(/^["'"「」【】]+|["'"「」【】]+$/g, "").trim().slice(0, isZh ? 15 : 50);
+  } finally {
+    _isGeneratingTitle = false;
+    _generatingTitleTopicId = null;
+  }
 }
 
 export async function summarizeConversation(opts: {

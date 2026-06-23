@@ -2,7 +2,15 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 use tauri::Manager;
 use tauri_plugin_sql::{Migration, MigrationKind};
+use tauri_plugin_updater::UpdaterExt;
 use walkdir::WalkDir;
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UpdateInfo {
+    pub version: String,
+    pub body: Option<String>,
+    pub date: Option<String>,
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GrepHit {
@@ -155,9 +163,53 @@ fn migrations() -> Vec<Migration> {
     ]
 }
 
+#[tauri::command]
+async fn check_for_updates(app: tauri::AppHandle) -> Result<Option<UpdateInfo>, String> {
+    let updater = app.updater().map_err(|e| e.to_string())?;
+    match updater.check().await {
+        Ok(Some(update)) => Ok(Some(UpdateInfo {
+            version: update.version.clone(),
+            body: update.body.clone(),
+            date: update.date.map(|d| d.to_string()),
+        })),
+        Ok(None) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+#[tauri::command]
+async fn download_and_install_update(app: tauri::AppHandle) -> Result<(), String> {
+    let updater = app.updater().map_err(|e| e.to_string())?;
+    let update = updater
+        .check()
+        .await
+        .map_err(|e| e.to_string())?
+        .ok_or("No update available")?;
+
+    let mut downloaded = 0;
+    update
+        .download_and_install(
+            |chunk_length, total| {
+                downloaded += chunk_length as u64;
+                if let Some(total) = total {
+                    let percent = (downloaded as f64 / total as f64) * 100.0;
+                    println!("[updater] download progress: {:.1}%", percent);
+                }
+            },
+            || {
+                println!("[updater] download finished, installing...");
+            },
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(
@@ -172,7 +224,9 @@ pub fn run() {
             append_text_file,
             write_text_file,
             delete_path,
-            app_data_dir
+            app_data_dir,
+            check_for_updates,
+            download_and_install_update
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

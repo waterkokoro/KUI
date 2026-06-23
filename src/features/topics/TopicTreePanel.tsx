@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { App, Tree, Input, Button, Modal, Menu, Tooltip, Space, Dropdown } from "antd";
-import { PlusOutlined, MessageOutlined, ApartmentOutlined, SettingOutlined, DownOutlined, InteractionOutlined } from "@ant-design/icons";
+import { PlusOutlined, MessageOutlined, ApartmentOutlined, SettingOutlined, DownOutlined, InteractionOutlined, ThunderboltOutlined, LoadingOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
 import mascotImg from "../../assets/kui/kui_def.png";
 import { useAppStore } from "../../stores/appStore";
+import { useStreamingStore, abortTopic } from "../../stores/streamingStore";
+import { useShallow } from "zustand/react/shallow";
 import {
   listTopics,
   createTopic,
@@ -11,9 +13,12 @@ import {
   deleteTopic,
   promoteToRoot,
 } from "../../db/repos/topics";
+import { listMessages } from "../../db/repos/messages";
+import { listProviders, listModels } from "../../db/repos/providers";
 import { setSetting } from "../../db/repos/settings";
 import { deleteTopicDir } from "../../fs/mdRepo";
 import { buildTree, getAncestorIds, type TreeNode } from "./topicTree";
+import { generateTitle, isGeneratingTitle, getGeneratingTitleTopicId } from "../agent/runAgent";
 import type { Topic } from "../../types";
 import { EMOJI_PRESETS, DEFAULT_TOPIC_ICON } from "../../constants/emojiPresets";
 import { Twemoji } from "../../components/Twemoji";
@@ -27,13 +32,15 @@ interface RawNode {
 
 const DEFAULT_ICON = DEFAULT_TOPIC_ICON;
 
-function toAntd(nodes: TreeNode[], untitled: string): RawNode[] {
+function toAntd(nodes: TreeNode[], untitled: string, streamingIds: Set<string>): RawNode[] {
   return nodes.map((n) => ({
     key: n.key,
     raw: n.topic,
     title: (
       <span style={{ display: "inline-flex", alignItems: "center", width: "100%" }}>
-        {n.topic.type === "interactive" ? (
+        {streamingIds.has(n.topic.id) ? (
+          <LoadingOutlined spin style={{ marginRight: 5, flexShrink: 0, fontSize: 14, color: "var(--primary-color, #6366f1)" }} />
+        ) : n.topic.type === "interactive" ? (
           <InteractionOutlined style={{ marginRight: 5, flexShrink: 0, fontSize: 14, color: "var(--primary-color, #6366f1)" }} />
         ) : (
           <Twemoji emoji={n.topic.icon || DEFAULT_ICON} size={16} style={{ marginRight: 5, flexShrink: 0 }} />
@@ -41,17 +48,18 @@ function toAntd(nodes: TreeNode[], untitled: string): RawNode[] {
         {n.topic.title || untitled}
       </span>
     ),
-    children: n.children.length ? toAntd(n.children, untitled) : undefined,
+    children: n.children.length ? toAntd(n.children, untitled, streamingIds) : undefined,
   }));
 }
 
 export function TopicTreePanel() {
   const { t } = useTranslation();
   const { modal, message } = App.useApp();
-  const { currentTopicId, setCurrentTopic, treeReloadKey, reloadTree, setView, view, currentProfileId, setCurrentProfile, profiles, requestProfileCreate, locateTopicKey } =
+  const { currentTopicId, setCurrentTopic, treeReloadKey, reloadTree, setView, view, currentProfileId, setCurrentProfile, profiles, requestProfileCreate, locateTopicKey, settings } =
     useAppStore();
   const [topics, setTopics] = useState<Topic[]>([]);
   const [filter, setFilter] = useState("");
+  const [generatingTitleId, setGeneratingTitleId] = useState<string | null>(null);
 
   // 右键菜单状态
   const [ctx, setCtx] = useState<{ topic: Topic; x: number; y: number } | null>(
@@ -143,6 +151,55 @@ export function TopicTreePanel() {
     return filt(tree);
   }, [tree, filter]);
 
+  // Subscribe to streaming topic IDs for loading indicators
+  const streamingTopicIds = useStreamingStore(useShallow((s) => s.getStreamingTopicIds()));
+  const streamingIdsSet = useMemo(() => new Set(streamingTopicIds), [streamingTopicIds]);
+
+  // 同步全局标题生成锁状态，以便 ChatView 触发时本界面也能显示 loading
+  useEffect(() => {
+    const id = setInterval(() => {
+      setGeneratingTitleId(isGeneratingTitle() ? (getGeneratingTitleTopicId() ?? "__unknown__") : null);
+    }, 300);
+    return () => clearInterval(id);
+  }, []);
+
+  const handleRegenerateTitle = async (topic: Topic) => {
+    if (isGeneratingTitle()) return; // 全局锁：已有任务在运行
+    // Resolve modelRef: topic.model_ref → agent default → settings → first available
+    let modelRef = topic.model_ref;
+    if (!modelRef) {
+      const [providers, models] = await Promise.all([listProviders(), listModels()]);
+      const enabled = providers.filter((p) => p.enabled === 1);
+      for (const p of enabled) {
+        const m = models.find((mm) => mm.provider_id === p.id);
+        if (m) { modelRef = `${p.id}:${m.model_id}`; break; }
+      }
+    }
+    if (!modelRef) {
+      message.warning(t("topic.noModelForTitle"));
+      return;
+    }
+    const msgs = await listMessages(topic.id);
+    if (msgs.length === 0) return;
+    setGeneratingTitleId(topic.id);
+    try {
+      const newTitle = await generateTitle({
+        modelRef,
+        topicId: topic.id,
+        messages: msgs.map((m) => ({ role: m.role, content: m.content })),
+        language: settings.language,
+      });
+      if (newTitle) {
+        await updateTopic(topic.id, { title: newTitle });
+        reloadTree();
+      }
+    } catch (e: unknown) {
+      message.error((e as Error).message ?? String(e));
+    } finally {
+      setGeneratingTitleId(null);
+    }
+  };
+
   const handleMenu = async (topic: Topic, key: string) => {
     if (key === "newChild") {
       const created = await createTopic({
@@ -173,6 +230,9 @@ export function TopicTreePanel() {
         okText: t("common.ok"),
         cancelText: t("common.cancel"),
         onOk: async () => {
+          // Abort any in-flight streaming and clean up streaming state for this topic
+          abortTopic(topic.id);
+          useStreamingStore.getState().removeState(topic.id);
           await deleteTopic(topic.id);
           await deleteTopicDir(topic.id).catch(() => {});
           if (currentTopicId === topic.id) setCurrentTopic(null);
@@ -182,12 +242,14 @@ export function TopicTreePanel() {
     } else if (key === "promote") {
       await promoteToRoot(topic.id);
       reloadTree();
-      message.success("OK");
+      message.success(t("common.promoted"));
     } else if (key === "openGraph") {
       setCurrentTopic(topic.id);
       setView("graph");
     } else if (key === "setIcon") {
       setIconPicking({ topic, icon: topic.icon || "" });
+    } else if (key === "aiRegenerateTitle") {
+      void handleRegenerateTitle(topic);
     }
   };
 
@@ -220,6 +282,13 @@ export function TopicTreePanel() {
         { key: "newChild", label: t("tree.menu.newChild") },
         { key: "newInteractiveChild", label: t("tree.menu.newInteractiveChild") },
         { key: "rename", label: t("tree.menu.rename") },
+        {
+          key: "aiRegenerateTitle",
+          label: generatingTitleId === ctx.topic.id
+            ? <span><LoadingOutlined style={{ marginRight: 4 }} />{t("topic.regeneratingTitle")}</span>
+            : <span><ThunderboltOutlined style={{ marginRight: 4 }} />{t("topic.regenerateTitle")}</span>,
+          disabled: generatingTitleId !== null,
+        },
         { key: "setIcon", label: t("tree.menu.setIcon") },
         {
           key: "promote",
@@ -337,9 +406,10 @@ export function TopicTreePanel() {
           <Tooltip title={t("tree.newInteractiveRoot")}>
             <Button
               size="small"
-              type="default"
+              type="primary"
               icon={<InteractionOutlined />}
               onClick={newInteractiveRoot}
+              className="kui-btn-interactive"
             />
           </Tooltip>
         </div>
@@ -353,7 +423,7 @@ export function TopicTreePanel() {
           <Tree
             blockNode
             showLine
-            treeData={toAntd(filtered, t("topic.untitled"))}
+            treeData={toAntd(filtered, t("topic.untitled"), streamingIdsSet)}
             selectedKeys={currentTopicId ? [currentTopicId] : []}
             expandedKeys={expandedKeys}
             onExpand={(keys) => setExpandedKeys(keys as string[])}

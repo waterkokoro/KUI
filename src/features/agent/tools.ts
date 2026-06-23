@@ -150,7 +150,7 @@ export async function buildTools(
                 selection: ["mode", "options"],
                 form: ["fields"],
                 buttons: ["items"],
-                card: ["title", "content"],
+                card: ["content"],
                 short_answer: ["question"],
                 chart: ["chartType", "data"],
                 translation: ["sourceLang", "targetLang", "entries"],
@@ -162,6 +162,50 @@ export async function buildTools(
                 const missing = fields.filter((f) => data[f] === undefined || data[f] === null);
                 if (missing.length > 0) {
                   return { error: `render_ui: "${type}" requires data fields: ${missing.join(", ")}. Please fix and retry.` };
+                }
+              }
+              // Recursively validate & normalize nested blocks inside pages
+              if (type === "pages" && Array.isArray(data.pages)) {
+                const nestedRequiredFields: Record<string, string[]> = {
+                  selection: ["mode", "options"],
+                  form: ["fields"],
+                  buttons: ["items"],
+                  card: ["content"],
+                  short_answer: ["question"],
+                  chart: ["chartType", "data"],
+                  translation: ["sourceLang", "targetLang", "entries"],
+                  custom: ["html"],
+                };
+                data.pages = data.pages.map((pageBlock: Record<string, unknown>) => {
+                  if (!pageBlock || typeof pageBlock !== "object") return pageBlock;
+                  const pb = pageBlock as Record<string, unknown>;
+                  const pType = pb.type as string;
+                  // If nested block is missing data entirely, try to recover from block-level fields
+                  if (!pb.data || typeof pb.data !== "object") {
+                    if (pType === "card" && typeof pb.title === "string") {
+                      pb.data = { title: pb.title, content: (pb.description as string) || pb.title };
+                    } else {
+                      pb.data = {};
+                    }
+                  }
+                  // Validate nested required fields; auto-fill missing card.title from block title
+                  const nFields = nestedRequiredFields[pType];
+                  if (nFields && typeof pb.data === "object" && pb.data !== null) {
+                    const nd = pb.data as Record<string, unknown>;
+                    if (pType === "card" && (nd.content === undefined || nd.content === null)) {
+                      nd.content = (pb.title as string) || (pb.description as string) || "";
+                    }
+                    if (pType === "card" && (nd.title === undefined || nd.title === null)) {
+                      nd.title = (pb.title as string) || "";
+                    }
+                  }
+                  return pb;
+                });
+              }
+              // Auto-fill card data.title from block-level title if missing
+              if (type === "card" && typeof data === "object" && data !== null) {
+                if ((data.title === undefined || data.title === null) && typeof title === "string") {
+                  data.title = title;
                 }
               }
               const ui_id = `ui_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;

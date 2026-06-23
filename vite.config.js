@@ -49,7 +49,7 @@ export default defineConfig(function () { return __awaiter(void 0, void 0, void 
                 clearScreen: false,
                 // 2. tauri expects a fixed port, fail if that port is not available
                 server: {
-                    port: 1420,
+                    port: 10101,
                     strictPort: true,
                     host: host || false,
                     hmr: host

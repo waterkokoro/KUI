@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Modal, Tooltip } from "antd";
 import { FullscreenOutlined, ExpandOutlined, CloseOutlined } from "@ant-design/icons";
 import { useTranslation } from "react-i18next";
@@ -28,8 +28,19 @@ export function InteractiveContainer({ payload, submitted, onSubmit, onRetry }: 
   const { t } = useTranslation();
   const [results, setResults] = useState<Map<number, InteractiveResult>>(new Map());
   const [viewMode, setViewMode] = useState<ViewMode>("normal");
+  // Guard against double-submit: once onSubmit fires, prevent subsequent calls
+  const submittedRef = useRef(false);
 
   const blocks = payload && Array.isArray(payload.blocks) ? payload.blocks : [];
+
+  // Wrap onSubmit to ensure it only fires once.
+  // Check both submittedRef (intra-lifecycle guard) and submitted prop
+  // (cross-mount guard — submittedRef resets on remount when switching topics).
+  const safeSubmit = (allResults: InteractiveResult[]) => {
+    if (submittedRef.current || submitted) return;
+    submittedRef.current = true;
+    onSubmit(allResults);
+  };
 
   // Auto-fill placeholder results for display-only blocks on mount
   useEffect(() => {
@@ -51,8 +62,8 @@ export function InteractiveContainer({ payload, submitted, onSubmit, onRetry }: 
       // Check if all blocks now have results
       if (payload.auto_submit !== false && next.size === blocks.length) {
         const allResults = blocks.map((_, i) => next.get(i)!);
-        // Defer onSubmit to avoid state update during render
-        setTimeout(() => onSubmit(allResults), 0);
+        // Defer submit to avoid state update during render
+        setTimeout(() => safeSubmit(allResults), 0);
       }
       return next;
     });
@@ -67,7 +78,7 @@ export function InteractiveContainer({ payload, submitted, onSubmit, onRetry }: 
     // 当所有 block 都有结果时，自动提交
     if (payload.auto_submit !== false && next.size === blocks.length) {
       const allResults = blocks.map((_, i) => next.get(i)!);
-      onSubmit(allResults);
+      safeSubmit(allResults);
     }
   };
 
@@ -88,9 +99,7 @@ export function InteractiveContainer({ payload, submitted, onSubmit, onRetry }: 
             hideHeader={isExpanded}
             onError={onRetry}
           />
-        ) : (
-          <div key={i} className="kui-interactive-error">Block {i + 1}: missing data</div>
-        )
+        ) : null
       ))}
     </div>
   );

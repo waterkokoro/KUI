@@ -1,5 +1,6 @@
 import { nanoid } from "nanoid";
 import { getDb } from "../sql";
+import { getAllSettings, setSetting } from "./settings";
 import type { Agent, ID } from "../../types";
 
 export async function listAgents(): Promise<Agent[]> {
@@ -41,5 +42,12 @@ export async function upsertAgent(a: Partial<Agent> & { name: string }): Promise
 
 export async function deleteAgent(id: ID): Promise<void> {
   const db = await getDb();
+  // Clear agent_id references in topics (foreign_keys pragma is not enabled)
+  await db.execute("UPDATE topics SET agent_id = NULL WHERE agent_id = ?", [id]);
+  // Clear default_agent_id in settings if it references this agent
+  const settings = await getAllSettings();
+  if (settings.default_agent_id === id) {
+    await setSetting("default_agent_id", null);
+  }
   await db.execute("DELETE FROM agents WHERE id = ?", [id]);
 }

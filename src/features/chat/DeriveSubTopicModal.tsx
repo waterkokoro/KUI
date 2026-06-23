@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Modal, Input, Select, Form, Spin, message as antdMessage } from "antd";
 import { useTranslation } from "react-i18next";
 import { listAgents } from "../../db/repos/agents";
@@ -31,6 +31,7 @@ export function DeriveSubTopicModal({
   const [form] = Form.useForm();
   const [compressing, setCompressing] = useState(true);
   const [creating, setCreating] = useState(false);
+  const summarizeStartedRef = useRef(false);
 
   useEffect(() => {
     void Promise.all([listAgents(), listProviders(), listModels()]).then(([a, p, m]) => {
@@ -66,6 +67,12 @@ export function DeriveSubTopicModal({
       modelRef: initialModel,
       agentId: initialAgent,
     });
+
+    // Prevent duplicate summarizeConversation calls when agents/models load
+    if (summarizeStartedRef.current) return;
+    // If no model available yet, wait for providers/models to load
+    if (!initialModel && modelOptions.length === 0) return;
+    summarizeStartedRef.current = true;
 
     const run = async () => {
       if (!initialModel || parentMessages.length === 0) {

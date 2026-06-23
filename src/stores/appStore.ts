@@ -16,6 +16,7 @@ interface AppState {
   settingsTab: string;
   profilesAutoCreate: boolean;
   chatFullscreen: boolean;
+  showOnboarding: boolean;
   setReady(v: boolean): void;
   setAppDataDir(d: string): void;
   setSettings(s: Settings): void;
@@ -30,6 +31,7 @@ interface AppState {
   requestProfileCreate(): void;
   clearProfileCreate(): void;
   setChatFullscreen(v: boolean): void;
+  setShowOnboarding(v: boolean): void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -45,6 +47,7 @@ export const useAppStore = create<AppState>((set) => ({
     default_model_ref: null,
     search_provider: "auto",
     search_api_keys: {},
+    onboarding_done: false,
   },
   currentTopicId: null,
   currentUserId: null,
@@ -57,6 +60,7 @@ export const useAppStore = create<AppState>((set) => ({
   settingsTab: "general",
   profilesAutoCreate: false,
   chatFullscreen: false,
+  showOnboarding: false,
   setReady: (v) => set({ ready: v }),
   setAppDataDir: (d) => set({ appDataDir: d }),
   setSettings: (s) => set({ settings: s }),
@@ -75,4 +79,5 @@ export const useAppStore = create<AppState>((set) => ({
   requestProfileCreate: () => set({ view: "settings", settingsTab: "profiles", profilesAutoCreate: true }),
   clearProfileCreate: () => set({ profilesAutoCreate: false }),
   setChatFullscreen: (v) => set({ chatFullscreen: v }),
+  setShowOnboarding: (v) => set({ showOnboarding: v }),
 }));

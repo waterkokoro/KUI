@@ -1,7 +1,5 @@
 <p align="center">
   <img src="./src/assets/kui/kui_def.png" alt="KUI" width="140">
-  <br>
-  <strong style="font-size: 1.5em;">KUI</strong>
 </p>
 
 <h1 align="center">KUI</h1>
@@ -12,7 +10,7 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
-  <a href="https://github.com/waterkokoro/KUI/releases"><img src="https://img.shields.io/badge/version-0.1.8-blue" alt="Version"></a>
+  <a href="https://github.com/waterkokoro/KUI/releases"><img src="https://img.shields.io/badge/version-0.2.0-blue" alt="Version"></a>
   <a href="https://github.com/waterkokoro/KUI/stargazers"><img src="https://img.shields.io/github/stars/waterkokoro/KUI?style=social" alt="Stars"></a>
   <a href="https://github.com/waterkokoro/KUI/network/members"><img src="https://img.shields.io/github/forks/waterkokoro/KUI?style=social" alt="Forks"></a>
   <a href="https://github.com/waterkokoro/KUI/issues"><img src="https://img.shields.io/github/issues/waterkokoro/KUI" alt="Issues"></a>
@@ -33,37 +31,99 @@
 
 ## 📸 预览
 
+### 基础界面
+
 <p align="center">
-  <img src="./pics/kui_n1.png" alt="KUI 主界面 - 目录树与欢迎页" width="700">
+  <img src="./pics/kui_n1.png" alt="KUI 主界面" width="700">
+  <br>
+  <em>主界面 — 树形目录与欢迎页</em>
+</p>
+
+<p align="center">
+  <img src="./pics/kui_n4.png" alt="对话界面" width="340">
+  &nbsp;&nbsp;
+  <img src="./pics/kui_n2.png" alt="图视图" width="340">
+  <br>
+  <em>对话界面 &nbsp;/&nbsp; 图视图 — 知识图谱</em>
+</p>
+
+<p align="center">
+  <img src="./pics/kui_n3.png" alt="助手管理" width="340">
+  &nbsp;&nbsp;
+  <img src="./pics/模式.png" alt="对话模式" width="340">
+  <br>
+  <em>助手管理 &nbsp;/&nbsp; 对话模式切换</em>
+</p>
+
+### 交互对话
+
+<p align="center">
+  <img src="./pics/交互式对话-ai卡片回答展示.png" alt="AI 卡片回答" width="225">
+  &nbsp;
+  <img src="./pics/交互式对话-ai让我选.png" alt="AI 选择卡片" width="225">
+  &nbsp;
+  <img src="./pics/交互式对话-股票信息查询.png" alt="股票查询" width="225">
+  <br>
+  <em>信息卡片 &nbsp;/&nbsp; 选择卡片 &nbsp;/&nbsp; 实时数据查询</em>
+</p>
+
+<p align="center">
+  <img src="./pics/交互式对话-ai演示三角函数动画.png" alt="三角函数动画" width="340">
+  &nbsp;&nbsp;
+  <img src="./pics/交互式对话-ai演示线性代数.png" alt="线性代数" width="340">
+  <br>
+  <em>数学可视化 — 三角函数动画 &nbsp;/&nbsp; 线性代数</em>
+</p>
+
+<p align="center">
+  <img src="./pics/交互式对话-ai演示二叉树遍历1.png" alt="二叉树默认" width="225">
+  &nbsp;
+  <img src="./pics/交互式对话-ai演示二叉树遍历2-放大.png" alt="二叉树放大" width="225">
+  &nbsp;
+  <img src="./pics/交互式对话-ai演示二叉树遍历3-全屏.png" alt="二叉树全屏" width="225">
+  <br>
+  <em>二叉树遍历 — 默认 &nbsp;/&nbsp; 放大 &nbsp;/&nbsp; 全屏三态视图</em>
+</p>
+
+<p align="center">
+  <img src="./pics/交互式对话-小游戏.png" alt="小游戏" width="340">
+  &nbsp;&nbsp;
+  <img src="./pics/交互式对话-给一个抽奖能力.png" alt="抽奖" width="340">
+  <br>
+  <em>自定义 HTML 应用 — 小游戏 &nbsp;/&nbsp; 抽奖</em>
+</p>
+
+### 讲解对比：KUI vs 豆包
+
+<p align="center">
+  <strong>「讲解消融实验」同一问题，不同产品回答效果对比</strong>
   <br><br>
-  <img src="./pics/kui_n4.png" alt="KUI 对话与右键菜单" width="700">
+  <img src="./pics/豆包截图-讲解消融实验.png" alt="豆包" width="340">
+  &nbsp;&nbsp;
+  <img src="./pics/KUI-讲解消融实验-回答页.png" alt="KUI" width="340">
+  <br>
+  <em>左：豆包 &nbsp;|&nbsp; 右：KUI</em>
   <br><br>
-  <img src="./pics/kui_n2.png" alt="KUI 图视图 - 知识图谱" width="700">
-  <br><br>
-  <img src="./pics/kui_n3.png" alt="KUI 助手管理" width="700">
+  <img src="./pics/KUI-讲解消融实验-放大回答.png" alt="KUI 放大查看" width="500">
+  <br>
+  <em>KUI — 放大查看完整回答</em>
 </p>
 
 ---
 
 ## 📋 更新日志
 
-### v0.1.8
+### v0.2.0
 
-- 🎨 **交互对话模式**：AI 可渲染富交互 UI 组件，取代纯文本输出
-- 🧩 **9 种组件类型**：选择卡片（selection）、表单（form）、按钮（buttons）、信息卡（card）、简答题（short_answer）、图表（chart）、翻译对照（translation）、自定义 HTML（custom）、多页容器（pages）
-- 🖼️ **放大与全屏**：交互组件支持弹窗放大和全屏预览，沉浸式查看复杂内容
-- 🔧 **自定义 HTML 组件**：支持 AI 生成完整 HTML+CSS+JS 小应用，在沙盒 iframe 中安全运行（计算器、测验、可视化等）
-- 📊 **图表可视化**：内置柱状图、折线图、饼图，AI 可直接渲染数据图表
-- 🔄 **交互结果回传**：用户操作结果自动回传给 AI，驱动下一步对话
+- 🚀 **新手引导流程**：全新 5 步引导向导，快速配置模型服务商、AI 助手和个人资料
+- 🔄 **自动更新**：内置应用更新检查器，启动时自动检测新版本，支持一键下载安装
+- 🔁 **重新回答**：支持对 AI 回复重新生成，删除旧回复并重新执行
+- ⏹️ **停止生成**：流式输出过程中可随时停止生成
+- 🌐 **多话题并发流式**：重构流式架构，每个话题独立流式状态，支持多话题同时生成
+- 🍎 **macOS 签名与公证**：CI/CD 集成 Apple 代码签名与公证，下载即可直接运行
+- 🐛 **稳定性修复**：修复交互组件状态持久化、竞态条件、级联删除等多个问题
 
-### v0.1.7
-
-- 🌐 **联网搜索**：对话中可开启联网搜索，AI 自动检索网页并引用来源
-- 🔍 **多搜索服务商**：支持 Tavily、Serper（Google）、Brave Search、AnySearch Free，可配置优先级与自动降级
-- 🛠️ **Tool Calling 增强**：OpenAI 兼容接口全面支持 function calling，深度思考模式也可调用工具
-- 📎 **参考来源展示**：搜索结果以可折叠列表呈现，点击即可跳转原始链接
-- 🎨 **UI 优化**：深度思考折叠箭头改为 chevron 风格，搜索中状态增加脉冲动画指示器
-- 🐛 **修复**：优化 OpenAI streaming 在 tool call 场景下的多步执行稳定性
+> 📜 历史版本更新记录请查看 [HISTORY.md](./HISTORY.md)
 
 ---
 

@@ -72,7 +72,7 @@ export function SearchTab() {
               <Radio key={p.value} value={p.value}>
                 <div>
                   <span style={{ fontWeight: 500 }}>{t(p.labelKey)}</span>
-                  <div style={{ fontSize: 12, color: "var(--text-secondary, #888)", marginTop: 2 }}>
+                  <div style={{ fontSize: 12, color: "var(--ant-color-text-secondary, #888)", marginTop: 2 }}>
                     {t(p.descKey)}
                   </div>
                 </div>

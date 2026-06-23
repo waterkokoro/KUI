@@ -1,19 +1,21 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button, Dropdown, Input, Modal, Popover, Space, Tooltip, message as antdMessage } from "antd";
-import { AimOutlined, ArrowLeftOutlined, CodeOutlined, CopyOutlined, EditOutlined, FolderOpenOutlined, FullscreenExitOutlined, FullscreenOutlined, GlobalOutlined, InfoCircleOutlined, LoadingOutlined, PlusOutlined, RobotOutlined, StopOutlined, ThunderboltOutlined, ToolOutlined } from "@ant-design/icons";
+import { AimOutlined, ArrowLeftOutlined, CodeOutlined, CopyOutlined, EditOutlined, FolderOpenOutlined, FullscreenExitOutlined, FullscreenOutlined, GlobalOutlined, InfoCircleOutlined, LoadingOutlined, PlusOutlined, ReloadOutlined, RobotOutlined, StopOutlined, ThunderboltOutlined, ToolOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { useTranslation } from "react-i18next";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { Markdown } from "../../components/Markdown";
 import { TextAvatar, parseTextAvatar } from "../../components/TextAvatar";
 import { useAppStore } from "../../stores/appStore";
+import { useStreamingStore, defaultStreamState } from "../../stores/streamingStore";
 import { getTopic, updateTopic } from "../../db/repos/topics";
-import { listMessages, insertMessage } from "../../db/repos/messages";
+import { listMessages, insertMessage, deleteMessage } from "../../db/repos/messages";
 import { listAgents } from "../../db/repos/agents";
 import { listProviders, listModels } from "../../db/repos/providers";
 import { topicMdAbsPath, appendMessageMd } from "../../fs/mdRepo";
 import type { Agent, MessageRow, ModelRow, Provider, Topic } from "../../types";
-import { runAgent, type ToolCallEvent } from "../agent/runAgent";
+import { generateTitle, isGeneratingTitle } from "../agent/runAgent";
+import { startStreaming, stopStreaming, isTopicStreaming } from "./runAgentFlow";
 import { DeriveSubTopicModal } from "./DeriveSubTopicModal";
 import { EMOJI_PRESETS, DEFAULT_TOPIC_ICON } from "../../constants/emojiPresets";
 import { Twemoji } from "../../components/Twemoji";
@@ -61,18 +63,6 @@ function getLastThinkingLine(buf: string, maxLen = 80): string {
   const last = lines[lines.length - 1] || "";
   if (!last) return "";
   return last.length > maxLen ? last.slice(0, maxLen) + "\u2026" : last;
-}
-
-/** 工具名称友好化显示 */
-const TOOL_DISPLAY_NAMES: Record<string, string> = {
-  render_ui: "构建组件",
-  web_search: "联网搜索",
-  read_file: "读取文件",
-  write_file: "写入文件",
-  list_files: "列出文件",
-};
-function friendlyToolName(name: string): string {
-  return TOOL_DISPLAY_NAMES[name] ?? name.replace(/_/g, " ");
 }
 
 /** 尝试将 user message content 解析为 InteractiveMessageResult */
@@ -167,27 +157,23 @@ export function ChatView() {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [models, setModels] = useState<ModelRow[]>([]);
   const [input, setInput] = useState("");
-  const [streaming, setStreaming] = useState(false);
-  const [streamBuf, setStreamBuf] = useState("");
-  const [reasoningBuf, setReasoningBuf] = useState("");
   const [thinkingEnabled, setThinkingEnabled] = useState(false);
   const [webSearchEnabled, setWebSearchEnabled] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchRefs, setSearchRefs] = useState<{ title: string; url: string }[]>([]);
   const [mdPath, setMdPath] = useState("");
   const [deriveOpen, setDeriveOpen] = useState(false);
   const [deriveSeed, setDeriveSeed] = useState<string>("");
-  const abortRef = useRef<AbortController | null>(null);
-  const stopRequestedRef = useRef(false);
   const composingRef = useRef(false);
   // ── Custom component iframe retry tracking ──
   const customRetryCountRef = useRef<Map<string, number>>(new Map());
 
-  // ── Interactive state ──
-  const [interactivePayload, setInteractivePayload] = useState<InteractivePayload | null>(null);
+  // ── Read streaming state from global store for current topic ──
+  const streamState = useStreamingStore(
+    useCallback((s) => s.states[currentTopicId ?? ""] ?? defaultStreamState, [currentTopicId])
+  );
+  const { streaming, streamBuf, reasoningBuf, searchQuery, searchRefs, toolCallingName, interactivePayload, stopped } = streamState;
+
+  // ── Interactive state (non-streaming) ──
   const [submittedUiIds, setSubmittedUiIds] = useState<Set<string>>(new Set());
-  // ── Tool calling indicator ──
-  const [toolCallingName, setToolCallingName] = useState<string>("");
 
   useEffect(() => {
     void Promise.all([listAgents(), listProviders(), listModels()]).then(([a, p, m]) => {
@@ -198,16 +184,31 @@ export function ChatView() {
   }, []);
 
   useEffect(() => {
+    // No longer abort on topic switch — each topic streams independently
+
     if (!currentTopicId) {
       setTopic(null);
       setMessages([]);
       return;
     }
-    setInteractivePayload(null);
-    setSubmittedUiIds(new Set());
+    // Clear non-streaming interactive state for the new topic
+    useStreamingStore.getState().setState(currentTopicId, { interactivePayload: null });
     customRetryCountRef.current.clear();
     void getTopic(currentTopicId).then((t) => setTopic(t));
-    void listMessages(currentTopicId).then(setMessages);
+    void listMessages(currentTopicId).then((msgs) => {
+      setMessages(msgs);
+      // Reconstruct submittedUiIds from message history so that interactive
+      // components which already have a user response are NOT re-submitted
+      // when the user switches away and back to this topic.
+      const submitted = new Set<string>();
+      for (const m of msgs) {
+        if (m.role === "user") {
+          const parsed = tryParseInteractiveResult(m.content);
+          if (parsed) submitted.add(parsed.ui_id);
+        }
+      }
+      setSubmittedUiIds(submitted);
+    });
     void topicMdAbsPath(currentTopicId).then(setMdPath);
   }, [currentTopicId]);
 
@@ -242,194 +243,148 @@ export function ChatView() {
   };
 
   const send = async () => {
-    if (!topic || !input.trim() || streaming) return;
+    if (!topic || !input.trim() || isTopicStreaming(topic.id)) return;
+    if (topic.id !== useAppStore.getState().currentTopicId) return;
     if (!effectiveModelRef) {
-      antdMessage.error("Please configure a model in Settings.");
+      antdMessage.error(t("chat.noModelConfigured"));
       return;
     }
-    const userText = input.trim();
-    const agent = agents.find((a) => a.id === effectiveAgentId);
-    const userMsg = await insertMessage({
-      topic_id: topic.id,
-      role: "user",
-      content: userText,
+    // Set streaming state early to prevent double-send race condition
+    // (await insertMessage yields, allowing a second send() to pass the isTopicStreaming guard)
+    useStreamingStore.getState().setState(topic.id, {
+      streaming: true, streamBuf: "", reasoningBuf: "",
+      searchQuery: "", searchRefs: [], toolCallingName: "",
+      interactivePayload: null, stopped: false,
     });
-    await appendMessageMd(topic.id, "user", userText);
-    setMessages((prev) => [...prev, userMsg]);
-    setInput("");
-    setInteractivePayload(null);
-    await runAgentFlow({
-      topicObj: topic,
-      agent,
-      userText,
-      allMessages: [...messages, userMsg],
-    });
-  };
-
-  // Shared agent execution logic
-  const runAgentFlow = async (params: {
-    topicObj: Topic;
-    agent: Agent | undefined;
-    userText: string;
-    allMessages: MessageRow[];
-  }) => {
-    const { topicObj, agent, userText, allMessages } = params;
-    setStreaming(true);
-    setStreamBuf("");
-    setReasoningBuf("");
-    setSearchQuery("");
-    setSearchRefs([]);
-    stopRequestedRef.current = false;
-    const controller = new AbortController();
-    abortRef.current = controller;
-    let buf = "";
-    let capturedInteractivePayload: InteractivePayload | null = null;
     try {
-      const history = allMessages.map((m) => ({
-        role: m.role,
-        content: m.content,
-      }));
-      let reasoningAll = "";
-      let collectedRefs: { title: string; url: string }[] = [];
-      const { text } = await runAgent({
+      const userText = input.trim();
+      const agent = agents.find((a) => a.id === effectiveAgentId);
+      // Reload messages from DB to ensure we have the correct topic's messages
+      // (messages state might be stale from a recent topic switch)
+      const currentMessages = await listMessages(topic.id);
+      const userMsg = await insertMessage({
+        topic_id: topic.id,
+        role: "user",
+        content: userText,
+      });
+      // Append to markdown file — don't let failure block the stream
+      try {
+        await appendMessageMd(topic.id, "user", userText);
+      } catch (mdErr) {
+        console.error(`[KUI] appendMessageMd (user) failed topic=${topic.id}`, mdErr);
+      }
+      // Guard: don't update messages if user has switched to a different topic during await
+      if (topic.id === useAppStore.getState().currentTopicId) {
+        setMessages([...currentMessages, userMsg]);
+      }
+      setInput("");
+      await startStreaming({
+        topicObj: topic,
+        agent,
+        allMessages: [...currentMessages, userMsg],
         modelRef: effectiveModelRef!,
-        systemPrompt: agent?.system_prompt ?? "",
-        topicId: topicObj.id,
-        messages: history,
-        signal: controller.signal,
         thinking: thinkingEnabled,
         webSearch: webSearchEnabled,
-        interactive: topicObj.type === "interactive",
-        onToken: (delta) => {
-          buf += delta;
-          setStreamBuf(buf);
-        },
-        onReasoning: thinkingEnabled ? (delta) => {
-          reasoningAll += delta;
-          setReasoningBuf(reasoningAll);
-        } : undefined,
-        onToolCall: (event: ToolCallEvent) => {
-          // Track generic tool calling state (only web_search has its own dedicated UI)
-          if (event.toolName !== "web_search") {
-            if (event.status === "calling") {
-              setToolCallingName(friendlyToolName(event.toolName));
-            } else if (event.status === "done" || event.status === "render") {
-              setToolCallingName("");
-            }
-          }
-          if (event.toolName === "web_search") {
-            if (event.status === "calling") {
-              setSearchQuery(event.args.query as string);
-            } else if (event.status === "done") {
-              setSearchQuery("");
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              const result = event.result as any;
-              if (result?.results?.length) {
-                const refs = result.results.slice(0, 10).map((r: { title: string; url: string }) => ({
-                  title: r.title,
-                  url: r.url,
-                }));
-                collectedRefs = refs;
-                setSearchRefs(refs);
-              }
-            }
-          }
-          if (event.toolName === "render_ui" && event.status === "render") {
-            const payload = event.result as InteractivePayload;
-            capturedInteractivePayload = payload;
-            setInteractivePayload(payload);
+        t,
+        userText,
+        onNewMessage: (msg) => {
+          if (msg.topic_id === useAppStore.getState().currentTopicId) {
+            setMessages((prev) => [...prev, msg]);
           }
         },
+        onAutoTitle: handleAutoTitle,
+        onInfo: (msg) => antdMessage.info(msg),
+        onError: (msg) => antdMessage.error(msg),
       });
-      // Build final content with optional reasoning block and references
-      let finalContent = reasoningAll
-        ? `<details class="kui-reasoning-block"><summary>${t("chat.reasoningTitle")}</summary>\n\n${reasoningAll}\n\n</details>\n\n${text}`
-        : text;
-      if (collectedRefs.length > 0) {
-        const refsHtml = collectedRefs
-          .map((r, i) => `${i + 1}. [${r.title}](${r.url})`)
-          .join("\n");
-        finalContent += `\n\n<details class="kui-search-refs"><summary>${t("chat.searchRefs")} (${collectedRefs.length})</summary>\n\n${refsHtml}\n\n</details>`;
-      }
-      const interactiveDataStr = capturedInteractivePayload
-        ? JSON.stringify(capturedInteractivePayload)
-        : null;
-      const aiMsg = await insertMessage({
-        topic_id: topicObj.id,
-        role: "assistant",
-        content: finalContent,
-        interactive_data: interactiveDataStr,
+    } catch (e) {
+      // Reset streaming state if error occurs before startStreaming takes over
+      useStreamingStore.getState().setState(topic.id, {
+        streaming: false, streamBuf: "", reasoningBuf: "",
+        searchQuery: "", searchRefs: [], toolCallingName: "", stopped: false,
       });
-      await appendMessageMd(topicObj.id, "assistant", finalContent);
-      setMessages((prev) => [...prev, aiMsg]);
-      // Keep interactive payload active if render_ui was called
-      if (capturedInteractivePayload) {
-        setInteractivePayload(capturedInteractivePayload);
-      }
-      // Auto-title for first reply
-      if (!topicObj.title || topicObj.title === t("topic.newTitle") || topicObj.title === "Untitled") {
-        const guess = userText.slice(0, 28).replace(/\n/g, " ");
-        await updateTopic(topicObj.id, { title: guess });
-        setTopic({ ...topicObj, title: guess });
-        reloadTree();
-      }
-    } catch (e: unknown) {
-      if (stopRequestedRef.current) {
-        if (buf.trim()) {
-          const partial = buf + `\n\n_[${t("chat.stopped")}]_`;
-          const aiMsg = await insertMessage({
-            topic_id: topicObj.id,
-            role: "assistant",
-            content: partial,
-          });
-          await appendMessageMd(topicObj.id, "assistant", partial);
-          setMessages((prev) => [...prev, aiMsg]);
-        }
-        antdMessage.info(t("chat.stopped"));
-      } else {
-        antdMessage.error((e as Error).message ?? String(e));
-      }
-    } finally {
-      setStreaming(false);
-      setStreamBuf("");
-      setReasoningBuf("");
-      setSearchQuery("");
-      setSearchRefs([]);
-      setToolCallingName("");
-      abortRef.current = null;
-      stopRequestedRef.current = false;
+      antdMessage.error((e as Error).message ?? String(e));
     }
   };
 
   // Handle interactive component submission
   const handleInteractiveSubmit = async (payload: InteractivePayload, results: InteractiveResult[]) => {
-    if (!topic || streaming) return;
+    if (!topic || isTopicStreaming(topic.id)) return;
+    if (topic.id !== useAppStore.getState().currentTopicId) return;
+    if (!effectiveModelRef) {
+      antdMessage.error(t("chat.noModelConfigured"));
+      return;
+    }
     // Mark as submitted
     setSubmittedUiIds((prev) => new Set(prev).add(payload.ui_id));
-    setInteractivePayload(null);
+    // Set streaming state early to prevent double-send race condition
+    // (await insertMessage yields, allowing a second action to pass the isTopicStreaming guard)
+    useStreamingStore.getState().setState(topic.id, {
+      streaming: true, streamBuf: "", reasoningBuf: "",
+      searchQuery: "", searchRefs: [], toolCallingName: "",
+      interactivePayload: null, stopped: false,
+    });
 
     const resultMsg: InteractiveMessageResult = { ui_id: payload.ui_id, results };
     const userText = JSON.stringify(resultMsg);
     const agent = agents.find((a) => a.id === effectiveAgentId);
-    const userMsg = await insertMessage({
-      topic_id: topic.id,
-      role: "user",
-      content: userText,
-    });
-    await appendMessageMd(topic.id, "user", userText);
-    setMessages((prev) => [...prev, userMsg]);
-    await runAgentFlow({
-      topicObj: topic,
-      agent,
-      userText: `[Interactive Response] ${userText}`,
-      allMessages: [...messages, userMsg],
-    });
+    try {
+      const userMsg = await insertMessage({
+        topic_id: topic.id,
+        role: "user",
+        content: userText,
+      });
+      try {
+        await appendMessageMd(topic.id, "user", userText);
+      } catch (mdErr) {
+        console.error(`[KUI] appendMessageMd (interactive submit) failed topic=${topic.id}`, mdErr);
+      }
+      // Reload messages from DB to ensure we have the correct topic's messages
+      // (messages state might be stale from a recent topic switch or concurrent update)
+      const currentMessages = await listMessages(topic.id);
+      const allMsgs = [...currentMessages, userMsg];
+      // Guard: don't update messages if user has switched to a different topic during await
+      if (topic.id === useAppStore.getState().currentTopicId) {
+        setMessages(allMsgs);
+      }
+      await startStreaming({
+        topicObj: topic,
+        agent,
+        allMessages: allMsgs,
+        modelRef: effectiveModelRef!,
+        thinking: thinkingEnabled,
+        webSearch: webSearchEnabled,
+        t,
+        userText: `[Interactive Response] ${userText}`,
+        onNewMessage: (msg) => {
+          if (msg.topic_id === useAppStore.getState().currentTopicId) {
+            setMessages((prev) => [...prev, msg]);
+          }
+        },
+        onAutoTitle: handleAutoTitle,
+        onInfo: (msg) => antdMessage.info(msg),
+        onError: (msg) => antdMessage.error(msg),
+      });
+    } catch (e) {
+      // Reset streaming state if error occurs before startStreaming takes over
+      useStreamingStore.getState().setState(topic.id, {
+        streaming: false, streamBuf: "", reasoningBuf: "",
+        searchQuery: "", searchRefs: [], toolCallingName: "", stopped: false,
+      });
+      antdMessage.error((e as Error).message ?? String(e));
+    }
   };
 
   // Handle custom component iframe JS error → AI retry (max 3)
-  const handleCustomRetry = async (errorMessage: string) => {
-    if (streaming || !topic) return;
-    const payload = interactivePayload;
+  // payloadOverride is used for historical messages where interactivePayload (streaming store)
+  // is null — e.g. when switching back to a topic whose custom component had a JS error.
+  const handleCustomRetry = async (errorMessage: string, payloadOverride?: InteractivePayload) => {
+    if (isTopicStreaming(topic?.id ?? "") || !topic) return;
+    if (topic.id !== useAppStore.getState().currentTopicId) return;
+    if (!effectiveModelRef) {
+      antdMessage.error(t("chat.noModelConfigured"));
+      return;
+    }
+    const payload = payloadOverride ?? interactivePayload;
     if (!payload) return;
 
     const uiId = payload.ui_id;
@@ -442,33 +397,143 @@ export function ChatView() {
     }
 
     antdMessage.info(t("chat.customRetrying", { count }));
-    setInteractivePayload(null);
+    // Set streaming state early to prevent double-send race condition
+    useStreamingStore.getState().setState(topic.id, {
+      streaming: true, streamBuf: "", reasoningBuf: "",
+      searchQuery: "", searchRefs: [], toolCallingName: "",
+      interactivePayload: null, stopped: false,
+    });
 
     const feedback = `[System] The custom HTML component you rendered had a JavaScript error: "${errorMessage}". Please fix the code and call render_ui again with corrected HTML. This is retry attempt ${count}/3.`;
-    const errMsg = await insertMessage({
-      topic_id: topic.id,
-      role: "user",
-      content: feedback,
-    });
-    let currentMsgs: MessageRow[] = [];
-    setMessages((prev) => {
-      currentMsgs = [...prev, errMsg];
-      return currentMsgs;
-    });
+    try {
+      const errMsg = await insertMessage({
+        topic_id: topic.id,
+        role: "user",
+        content: feedback,
+      });
+      // Reload messages from DB to ensure we have the correct topic's messages
+      // (messages state might be stale from a recent topic switch or concurrent update)
+      const currentMsgs = await listMessages(topic.id);
+      const allMsgs = [...currentMsgs, errMsg];
+      // Guard: don't update messages if user has switched to a different topic during await
+      if (topic.id === useAppStore.getState().currentTopicId) {
+        setMessages(allMsgs);
+      }
 
-    const agent = agents.find((a) => a.id === effectiveAgentId);
-    await runAgentFlow({
-      topicObj: topic,
-      agent,
-      userText: feedback,
-      allMessages: currentMsgs,
-    });
+      const agent = agents.find((a) => a.id === effectiveAgentId);
+      await startStreaming({
+        topicObj: topic,
+        agent,
+        allMessages: allMsgs,
+        modelRef: effectiveModelRef!,
+        thinking: thinkingEnabled,
+        webSearch: webSearchEnabled,
+        t,
+        userText: feedback,
+        onNewMessage: (msg) => {
+          if (msg.topic_id === useAppStore.getState().currentTopicId) {
+            setMessages((prev) => [...prev, msg]);
+          }
+        },
+        onAutoTitle: handleAutoTitle,
+        onInfo: (msg) => antdMessage.info(msg),
+        onError: (msg) => antdMessage.error(msg),
+      });
+    } catch (e) {
+      // Reset streaming state if error occurs before startStreaming takes over
+      useStreamingStore.getState().setState(topic.id, {
+        streaming: false, streamBuf: "", reasoningBuf: "",
+        searchQuery: "", searchRefs: [], toolCallingName: "", stopped: false,
+      });
+      antdMessage.error((e as Error).message ?? String(e));
+    }
   };
 
   const stop = () => {
-    if (!abortRef.current) return;
-    stopRequestedRef.current = true;
-    abortRef.current.abort();
+    if (!topic) return;
+    stopStreaming(topic.id);
+  };
+
+  // Regenerate: delete the assistant message and re-run with the preceding user message
+  const handleRegenerate = async (assistantMsgId: string) => {
+    if (!topic || isTopicStreaming(topic.id)) return;
+    if (topic.id !== useAppStore.getState().currentTopicId) return;
+    if (!effectiveModelRef) {
+      antdMessage.error(t("chat.noModelConfigured"));
+      return;
+    }
+
+    // Find the assistant message index
+    const msgIndex = messages.findIndex((m) => m.id === assistantMsgId);
+    if (msgIndex < 0) return;
+
+    // Find the preceding user message
+    let userMsgIndex = -1;
+    for (let i = msgIndex - 1; i >= 0; i--) {
+      if (messages[i].role === "user") {
+        userMsgIndex = i;
+        break;
+      }
+    }
+    if (userMsgIndex < 0) return; // No preceding user message
+
+    const userMsg = messages[userMsgIndex];
+    const allMessages = messages.slice(0, userMsgIndex + 1);
+
+    // Set streaming state early to prevent double-send race condition
+    // (await deleteMessage yields, allowing a second action to pass the isTopicStreaming guard)
+    useStreamingStore.getState().setState(topic.id, {
+      streaming: true, streamBuf: "", reasoningBuf: "",
+      searchQuery: "", searchRefs: [], toolCallingName: "",
+      interactivePayload: null, stopped: false,
+    });
+
+    try {
+      // Delete the assistant message from DB and local state
+      await deleteMessage(assistantMsgId);
+      // Guard: don't update messages if user has switched to a different topic during await
+      if (topic.id === useAppStore.getState().currentTopicId) {
+        setMessages((prev) => prev.filter((m) => m.id !== assistantMsgId));
+      }
+
+      const agent = agents.find((a) => a.id === effectiveAgentId);
+      await startStreaming({
+        topicObj: topic,
+        agent,
+        allMessages,
+        modelRef: effectiveModelRef!,
+        thinking: thinkingEnabled,
+        webSearch: webSearchEnabled,
+        t,
+        userText: userMsg.content,
+        onNewMessage: (msg) => {
+          if (msg.topic_id === useAppStore.getState().currentTopicId) {
+            setMessages((prev) => [...prev, msg]);
+          }
+        },
+        onAutoTitle: handleAutoTitle,
+        onInfo: (msg) => antdMessage.info(msg),
+        onError: (msg) => antdMessage.error(msg),
+      });
+    } catch (e) {
+      // Reset streaming state if error occurs before startStreaming takes over
+      useStreamingStore.getState().setState(topic.id, {
+        streaming: false, streamBuf: "", reasoningBuf: "",
+        searchQuery: "", searchRefs: [], toolCallingName: "", stopped: false,
+      });
+      antdMessage.error((e as Error).message ?? String(e));
+    }
+  };
+
+  // Auto-title handler: updates topic title guess then fires AI regeneration
+  const handleAutoTitle = (topicObj: Topic, guess: string, allMessages: MessageRow[]) => {
+    updateTopic(topicObj.id, { title: guess }).then(() => {
+      if (topicObj.id === useAppStore.getState().currentTopicId) {
+        setTopic({ ...topicObj, title: guess });
+      }
+      reloadTree();
+      void regenerateTitle(topicObj, allMessages);
+    });
   };
 
   const onKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -485,6 +550,45 @@ export function ChatView() {
   const [editTitleValue, setEditTitleValue] = useState("");
   const [iconPicking, setIconPicking] = useState(false);
   const [iconValue, setIconValue] = useState("");
+  const [titleGenerating, setTitleGenerating] = useState(false);
+
+  // 同步全局标题生成锁状态到本地，以便目录树触发时本界面也能显示 loading
+  useEffect(() => {
+    const id = setInterval(() => setTitleGenerating(isGeneratingTitle()), 300);
+    return () => clearInterval(id);
+  }, []);
+
+  const regenerateTitle = async (topicOverride?: Topic, msgsOverride?: MessageRow[]) => {
+    const tObj = topicOverride ?? topic;
+    if (!tObj) return;
+    if (isGeneratingTitle()) return; // 全局锁：已有任务在运行
+    if (!effectiveModelRef) {
+      antdMessage.warning(t("topic.noModelForTitle"));
+      return;
+    }
+    setTitleGenerating(true);
+    try {
+      const msgs = msgsOverride ?? messages;
+      if (msgs.length === 0) return;
+      const newTitle = await generateTitle({
+        modelRef: effectiveModelRef,
+        topicId: tObj.id,
+        messages: msgs.map((m) => ({ role: m.role, content: m.content })),
+        language: settings.language,
+      });
+      if (newTitle) {
+        await updateTopic(tObj.id, { title: newTitle });
+        if (tObj.id === useAppStore.getState().currentTopicId) {
+          setTopic({ ...tObj, title: newTitle });
+        }
+        reloadTree();
+      }
+    } catch (e: unknown) {
+      antdMessage.error((e as Error).message ?? String(e));
+    } finally {
+      setTitleGenerating(false);
+    }
+  };
 
   const startEditTitle = () => {
     setEditTitleValue(topic?.title ?? "");
@@ -595,6 +699,15 @@ export function ChatView() {
               <Tooltip title={t("tree.menu.rename")}>
                 <Button type="text" size="small" icon={<EditOutlined />} onClick={startEditTitle} />
               </Tooltip>
+              <Tooltip title={t("topic.regenerateTitle")}>
+                <Button
+                  type="text"
+                  size="small"
+                  icon={titleGenerating ? <LoadingOutlined /> : <ThunderboltOutlined />}
+                  disabled={titleGenerating || streaming}
+                  onClick={() => void regenerateTitle()}
+                />
+              </Tooltip>
               <Tooltip title={t("topic.locateInTree")}>
                 <Button type="text" size="small" icon={<AimOutlined />} onClick={locateInTree} />
               </Tooltip>
@@ -630,15 +743,15 @@ export function ChatView() {
           content={
             <div style={{ minWidth: 200, fontSize: 13 }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                <span style={{ color: "var(--text-secondary, #888)" }}>{t("topic.info.createdAt")}</span>
+                <span style={{ color: "var(--ant-color-text-secondary, #888)" }}>{t("topic.info.createdAt")}</span>
                 <span>{dayjs(topic.created_at).format("YYYY-MM-DD HH:mm")}</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                <span style={{ color: "var(--text-secondary, #888)" }}>{t("topic.info.updatedAt")}</span>
+                <span style={{ color: "var(--ant-color-text-secondary, #888)" }}>{t("topic.info.updatedAt")}</span>
                 <span>{dayjs(topic.updated_at).format("YYYY-MM-DD HH:mm")}</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                <span style={{ color: "var(--text-secondary, #888)" }}>{t("topic.info.lastMessage")}</span>
+                <span style={{ color: "var(--ant-color-text-secondary, #888)" }}>{t("topic.info.lastMessage")}</span>
                 <span>
                   {messages.length > 0
                     ? dayjs(messages[messages.length - 1].created_at).format("YYYY-MM-DD HH:mm")
@@ -646,7 +759,7 @@ export function ChatView() {
                 </span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "var(--text-secondary, #888)" }}>{t("topic.info.messageCount")}</span>
+                <span style={{ color: "var(--ant-color-text-secondary, #888)" }}>{t("topic.info.messageCount")}</span>
                 <span>{messages.length}</span>
               </div>
             </div>
@@ -755,6 +868,17 @@ export function ChatView() {
                     <Tooltip title={t("chat.deriveFromHere")}>
                       <Button type="text" size="small" icon={<PlusOutlined />} onClick={() => deriveFrom(m.content)} />
                     </Tooltip>
+                    {!isUser && (
+                      <Tooltip title={t("chat.regenerate")}>
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<ReloadOutlined />}
+                          disabled={streaming}
+                          onClick={() => void handleRegenerate(m.id)}
+                        />
+                      </Tooltip>
+                    )}
                   </Space>
                 </div>
                 {parsedInteractive ? (
@@ -764,7 +888,7 @@ export function ChatView() {
                         payload={parsedInteractive}
                         submitted={isSubmitted}
                         onSubmit={(results) => handleInteractiveSubmit(parsedInteractive!, results)}
-                        onRetry={handleCustomRetry}
+                        onRetry={isSubmitted ? undefined : (err) => handleCustomRetry(err, parsedInteractive!)}
                       />
                     </InteractiveErrorBoundary>
                     {/* Always show text content alongside interactive UI */}
@@ -779,7 +903,7 @@ export function ChatView() {
             </div>
           );
         })}
-        {streaming && (() => {
+        {(streaming || stopped) && (() => {
           const currentAgent = agents.find((a) => a.id === effectiveAgentId);
           const agentAvatar = currentAgent?.avatar;
           const renderStreamAvatar = () => {
@@ -797,7 +921,9 @@ export function ChatView() {
               {renderStreamAvatar()}
               <div className="kui-chat-bubble assistant">
                 <div className="kui-chat-meta">
-                  {searchQuery ? (
+                  {stopped ? (
+                    <span className="kui-stopped-indicator"><StopOutlined /> {t("chat.stopped")}</span>
+                  ) : searchQuery ? (
                     <span className="kui-search-indicator"><GlobalOutlined /> {t("chat.searching")} "{searchQuery}"</span>
                   ) : toolCallingName ? (
                     <span className="kui-tool-indicator"><ToolOutlined /> {t("chat.callingTool", { name: toolCallingName })}...</span>
@@ -832,7 +958,7 @@ export function ChatView() {
                     </div>
                   </details>
                 )}
-                {searchRefs.length > 0 && (
+                {searchRefs.length > 0 && streamBuf && (
                   <details className="kui-search-refs" open>
                     <summary>{t("chat.searchRefs")} ({searchRefs.length})</summary>
                     <ol>

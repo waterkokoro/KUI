@@ -2,6 +2,18 @@
  * 交互模式 system prompt 补充说明
  * 当 topic.type === "interactive" 时注入到 agent 的 system prompt 中
  */
+
+/**
+ * 根据当前用户主题生成 UI 渲染提示信息
+ * 让 AI 知道用户当前使用的是暗黑还是亮色模式，以便生成合适颜色的 custom 组件
+ */
+export function getThemeHint(theme: "dark" | "light"): string {
+  if (theme === "dark") {
+    return `\n### 🌙 Current UI Theme: Dark Mode\nThe user is currently using **dark mode**. When generating \`custom\` components (HTML/CSS/JS), use dark-friendly color schemes: dark backgrounds (e.g., #1a1a2e, #16213e, #0f3460), light text (#e0e0e0, #ffffff), and high-contrast accents. Avoid pure white backgrounds or very light color palettes.`;
+  }
+  return `\n### ☀️ Current UI Theme: Light Mode\nThe user is currently using **light mode**. When generating \`custom\` components (HTML/CSS/JS), use light-friendly color schemes: light/white backgrounds, dark text, and standard color contrasts.`;
+}
+
 export const INTERACTIVE_SYSTEM_PROMPT = `
 ## Interactive Mode
 
@@ -112,13 +124,31 @@ You are in **interactive mode**. You have the \`render_ui\` tool that renders ri
 **CRITICAL**: The \`html\` field MUST be a complete, self-contained document. ALL JavaScript (event handlers, DOM manipulation, canvas drawing, animations) MUST be included as inline \`<script>\` tags WITHIN the \`html\` string. Never put JS code outside the \`html\` field — it will be lost. Example: \`"html": "<canvas id='c'></canvas><script>var c=document.getElementById('c');...</script>"\`
 Custom components can use \`data-action\` and \`data-value\` attributes on clickable elements. Form submissions are auto-captured.
 
-**pages** - Multi-page container (each page is another block)
+**pages** - Multi-page container (each page is a **full block wrapper**, not raw data)
 \`\`\`json
 {
-  "pages": [ /* array of block data objects */ ],
+  "pages": [
+    {
+      "type": "card",
+      "title": "Page Title (block-level)",
+      "data": {
+        "title": "Card Title (inside data)",
+        "content": "Markdown content here..."
+      }
+    },
+    {
+      "type": "chart",
+      "title": "Sales Chart",
+      "data": {
+        "chartType": "bar",
+        "data": [{ "label": "Q1", "value": 120 }]
+      }
+    }
+  ],
   "showPageNumber": true
 }
 \`\`\`
+⚠️ **CRITICAL for pages**: Each item in the \`pages\` array MUST be a full block object with \`type\`, \`title\`, and \`data\` fields. Do NOT put component data fields directly at the block level — they must always be nested inside \`data\`. Example of WRONG structure: \`{ "type": "card", "title": "...", "content": "..." }\` (missing \`data\` wrapper). CORRECT: \`{ "type": "card", "title": "...", "data": { "title": "...", "content": "..." } }\`.
 
 ### Component Selection Guide
 
@@ -167,4 +197,5 @@ When the user requests something that **exceeds these capabilities**:
 - ❌ Calling \`render_ui\` multiple times in one turn — the system supports only one call per response. Use \`pages\` to combine multiple components.
 - ❌ Outputting structured data (tables, lists, comparisons) as plain text when a component exists for it.
 - ❌ Producing a broken or incomplete component when the task is too complex — communicate limitations instead.
+- ❌ In \`pages\`, putting component fields directly at the block level (e.g., \`{ "type": "card", "content": "..." }\`) instead of wrapping them in \`data\` (e.g., \`{ "type": "card", "data": { "content": "..." } }\`). Every page block MUST have a \`data\` object.
 `;

@@ -129,7 +129,7 @@ export function ProfilesTab() {
     if (currentProfileId === profile.id && next.length > 0) {
       setCurrentProfile(next[0].id);
     }
-    message.success(t("common.delete") + " OK");
+    message.success(t("common.deleted"));
   };
 
   return (
